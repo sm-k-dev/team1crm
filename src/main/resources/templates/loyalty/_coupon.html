@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- 사용: <section th:replace="~{loyalty/_coupon :: couponPanel}"></section> -->
+<section th:fragment="couponPanel" class="card mb-4" aria-labelledby="coupon-panel-title">
+  <div class="card-header fw-bold" id="coupon-panel-title"><i class="bi bi-ticket-perforated"></i> 쿠폰</div>
+  <div class="card-body">
+    <form th:action="@{/customers/{id}/coupons(id=${customerId})}" method="post" class="row g-2 mb-3">
+      <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+      <div class="col-12"><label class="form-label" for="couponTitle">쿠폰 이름</label><input id="couponTitle" name="title" class="form-control" maxlength="50" required /></div>
+      <div class="col-6"><label class="form-label" for="couponDiscount">할인 금액(원)</label><input id="couponDiscount" name="discount" class="form-control" type="number" min="1" step="1" required /></div>
+      <div class="col-6"><label class="form-label" for="couponExpiresAt">만료일</label><input id="couponExpiresAt" name="expiresAt" class="form-control" type="date" required /></div>
+      <div class="col-12"><button class="btn btn-outline-primary btn-sm" type="submit">쿠폰 발급</button></div>
+    </form>
+    <ul class="list-group">
+      <li th:each="coupon : ${coupons}" class="list-group-item d-flex justify-content-between align-items-center">
+        <span><strong th:text="${coupon.title}">쿠폰</strong> <small th:text="${coupon.discount}">0</small></span>
+        <span th:text="${coupon.status}">상태</span>
+      </li>
+      <li th:if="${coupons == null or #lists.isEmpty(coupons)}" class="list-group-item text-muted">쿠폰이 없습니다.</li>
+    </ul>
+    <p class="small text-muted mt-2 mb-0">발급/사용/만료 상태 전이는 서버 트랜잭션에서 검증합니다. 서버 처리 구현 전까지 제출하지 마세요.</p>
+  </div>
+</section>
+</body>
+</html>

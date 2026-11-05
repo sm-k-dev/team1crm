@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- 사용: <section th:replace="~{loyalty/_point :: pointPanel}"></section> -->
+<section th:fragment="pointPanel" class="card mb-4" aria-labelledby="point-panel-title">
+  <div class="card-header fw-bold" id="point-panel-title">포인트</div>
+  <div class="card-body"><strong th:text="${pointBalance != null ? pointBalance : 0}">0</strong> P
+    <p class="small text-muted mb-0">잔액은 서버의 거래 원장을 기준으로 계산하며 클라이언트 입력값을 신뢰하지 않습니다.</p>
+  </div>
+  <ul class="list-group list-group-flush">
+    <li th:each="entry : ${pointHistory}" class="list-group-item d-flex justify-content-between">
+      <span th:text="${entry.createdAt}">일시</span><span><span th:text="${entry.type}">적립</span> <span th:text="${entry.point}">0</span>P</span>
+    </li>
+    <li th:if="${pointHistory == null or #lists.isEmpty(pointHistory)}" class="list-group-item text-muted">포인트 내역이 없습니다.</li>
+  </ul>
+</section>
+</body>
+</html>

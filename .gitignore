@@ -1,0 +1,44 @@
+# === Gradle ===
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# === IntelliJ IDEA ===
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# === VS Code ===
+.vscode/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Application ===
+*.log
+*.env
+*.env.local
+
+# === H2 Database ===
+*.mv.db
+*.trace.db
+
+# === 업로드한 사진 (FileService) ===
+uploads/
+
+# === 개인 도구 설정 / 비밀값 ===
+.claude/
+*.pem
+deploy-out/
+
+# Local credentials and IDE-specific run configurations
+.env
+.env.*
+!.env.example
+!deploy/crm.env.example
+*.properties.local
+*.yml.local
+*.yaml.local

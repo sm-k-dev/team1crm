@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- 사용: <section th:replace="~{loyalty/_visit :: visitPanel}"></section> -->
+<section th:fragment="visitPanel" class="card mb-4" aria-labelledby="visit-panel-title">
+  <div class="card-header fw-bold" id="visit-panel-title"><i class="bi bi-receipt"></i> 방문 등록</div>
+  <div class="card-body">
+    <!-- 상위 화면에서 customerId 및 CSRF 값을 제공하고 서버에서 매장 소유권 검증 -->
+    <form th:action="@{/customers/{id}/visits(id=${customerId})}" method="post" class="row g-2">
+      <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+      <div class="col-6"><label class="form-label" for="visitAmount">결제 금액(원)</label><input id="visitAmount" name="amount" class="form-control" type="number" min="0" step="1" required /></div>
+      <div class="col-6"><label class="form-label" for="visitUsedPoints">사용 포인트</label><input id="visitUsedPoints" name="usedPoints" class="form-control" type="number" min="0" step="1" value="0" /></div>
+      <div class="col-12"><label class="form-label" for="visitMemo">방문 메모</label><input id="visitMemo" name="memo" class="form-control" maxlength="200" /></div>
+      <div class="col-12"><button class="btn btn-primary btn-sm" type="submit">방문 등록</button></div>
+    </form>
+    <p class="small text-muted mt-2 mb-0">적립률·사용 가능 포인트는 서버에서 검증합니다. 서버 POST 처리 구현 전까지 제출하지 마세요.</p>
+  </div>
+</section>
+<section th:fragment="visitHistory" class="card mb-4" aria-labelledby="visit-history-title">
+  <div class="card-header fw-bold" id="visit-history-title">최근 방문</div>
+  <ul class="list-group list-group-flush">
+    <li th:each="visit : ${visits}" class="list-group-item d-flex justify-content-between">
+      <span><span th:text="${visit.visitedAt}">방문 일시</span> <small class="text-muted" th:text="${visit.memo}">메모</small></span>
+      <span th:text="${visit.amount}">0</span>
+    </li>
+    <li th:if="${visits == null or #lists.isEmpty(visits)}" class="list-group-item text-muted">방문 기록이 없습니다.</li>
+  </ul>
+</section>
+</body>
+</html>

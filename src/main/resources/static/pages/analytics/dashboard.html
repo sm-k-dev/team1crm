@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+
+<title>단골 고객 관리</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+
+<link rel="stylesheet" href="/css/modern-saas.css"/>
+</head>
+<body>
+<nav aria-label="주 메뉴" class="saas-shell-nav">
+<div class="saas-topbar">
+<a class="saas-mobile-brand" href="/index.html"><i class="bi bi-grid-1x2-fill"></i> StoreCRM</a>
+<button aria-controls="saasSidebar" aria-expanded="false" aria-label="메뉴 열기" class="saas-menu-toggle" type="button"><i class="bi bi-list"></i></button>
+<span class="saas-topbar-label">매장 고객 관리 시스템</span>
+<div class="saas-topbar-right">
+<span class="saas-user"><i class="bi bi-person-circle"></i> <span>사용자</span></span>
+<a class="saas-logout" href="/pages/auth/login.html"><i class="bi bi-box-arrow-right"></i> 로그아웃</a>
+<a class="saas-logout" href="/pages/auth/login.html">로그인</a>
+</div>
+</div>
+<aside class="saas-sidebar" id="saasSidebar">
+<a class="saas-brand" href="/index.html"><span class="saas-brand-icon"><i class="bi bi-bar-chart-steps"></i></span><span><strong>StoreCRM</strong><small>매장 고객 관리 시스템</small></span></a>
+
+<div class="saas-nav-section">ADMIN</div>
+<a class="saas-side-link" data-route="/pages/admin/dashboard.html" href="/pages/admin/dashboard.html"><i class="bi bi-speedometer2"></i> 사장님/매장 현황</a>
+<a class="saas-side-link" data-route="/pages/admin/stores.html" href="/pages/admin/stores.html"><i class="bi bi-shop"></i> 매장 관리</a>
+<a class="saas-side-link" data-route="/pages/admin/owners.html" href="/pages/admin/owners.html"><i class="bi bi-person-badge"></i> 사장님 계정 관리</a>
+
+
+<div class="saas-nav-section">WORKSPACE</div>
+<a class="saas-side-link" data-route="/index.html" href="/index.html"><i class="bi bi-grid-1x2"></i> 매장 운영 현황</a>
+<a class="saas-side-link" data-route="/pages/auth/store-settings.html" href="/pages/auth/store-settings.html"><i class="bi bi-gear"></i> 내 매장 정보</a>
+<div class="saas-nav-section">CUSTOMERS</div>
+<a class="saas-side-link" data-route="/pages/customer/list.html" href="/pages/customer/list.html"><i class="bi bi-people"></i> 고객 관리</a>
+<div class="saas-nav-section">INSIGHTS</div>
+<a class="saas-side-link" data-route="/pages/analytics/dashboard.html" href="/pages/analytics/dashboard.html"><i class="bi bi-graph-up-arrow"></i> 분석 · RFM · AI</a>
+
+
+<div class="saas-nav-section">ACCOUNT</div>
+<a class="saas-side-link" data-route="/pages/auth/login.html" href="/pages/auth/login.html"><i class="bi bi-box-arrow-in-right"></i> 로그인</a>
+<a class="saas-side-link" data-route="/pages/auth/signup.html" href="/pages/auth/signup.html"><i class="bi bi-person-plus"></i> 회원가입</a>
+
+<div class="saas-sidebar-bottom">Static HTML Preview<br/>Modern SaaS UI</div>
+</aside>
+<div aria-hidden="true" class="saas-overlay"></div>
+</nav>
+<main class="container mb-5">
+<div class="mb-4"><div class="saas-page-eyebrow">ANALYTICS / INSIGHTS</div><h2 class="saas-page-title"><span>매장</span> 분석</h2><p class="saas-page-subtitle mb-0">매출 추이, 고객 방문 패턴, RFM 등급과 AI 마케팅 문구를 확인하세요.</p></div>
+<div class="row g-3 mb-4">
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold">0</div><div class="small text-muted">이번 달 매출</div></div></div></div>
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold">0</div><div class="small text-muted">방문 고객</div></div></div></div>
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold text-danger">0</div><div class="small text-muted">재방문율</div></div></div></div>
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold">0</div><div class="small text-muted">오늘 방문</div></div></div></div>
+</div>
+<div class="row g-4 mb-4">
+<div class="col-lg-8"><div class="card"><div class="card-header fw-bold">월별 매출 · 방문 고객</div><div class="card-body"><canvas height="140" id="monthlyChart"></canvas></div></div></div>
+<div class="col-lg-4"><div class="card"><div class="card-header fw-bold">고객 등급</div><div class="card-body"><canvas height="200" id="gradeChart"></canvas></div></div></div>
+<div class="col-lg-6"><div class="card"><div class="card-header fw-bold">요일별 방문</div><div class="card-body"><canvas height="160" id="weekChart"></canvas></div></div></div>
+<div class="col-lg-6"><div class="card"><div class="card-header fw-bold">시간대별 방문</div><div class="card-body"><canvas height="160" id="hourChart"></canvas></div></div></div>
+</div>
+<div class="card mb-4 border-primary"><div class="card-body">
+<h5><i class="bi bi-robot"></i> AI 재방문 문구</h5>
+<p class="small text-muted">고객 이름·전화번호는 AI 에 보내지 않고 등급별 인원 등 집계 숫자만 보냅니다. 문자는 수신 동의 고객에게만 보내세요. (무료 AI 모델 · 1인 하루 5회)</p>
+<div class="d-flex gap-2 flex-wrap mb-2">
+
+<button class="btn btn-outline-primary btn-sm btn-grade" type="button">등급</button>
+</div>
+<div class="small text-muted" id="aiMsg"></div>
+<ol class="mt-2" id="aiList"></ol>
+</div></div>
+<div class="card"><div class="card-header fw-bold">RFM 고객 등급 (R 최근성 · F 빈도 · M 금액, 5점이 가장 좋음)</div>
+<div class="table-responsive"><table class="table table-sm table-hover mb-0 align-middle">
+<thead class="table-light"><tr><th>고객</th><th>마지막 방문</th><th>방문</th><th>합계</th><th>R</th><th>F</th><th>M</th><th>등급</th></tr></thead>
+<tbody>
+<!--/* r 은 Map. ${r.name} 은 맵의 "name" 값 */-->
+<tr>
+<td><a href="/index.html">고객</a></td>
+<td>날짜</td><td>0</td>
+<td>0</td>
+<td>0</td><td>0</td><td>0</td>
+
+<td>
+<span class="badge bg-warning text-dark">VIP</span>
+<span class="badge bg-primary">단골</span>
+<span class="badge bg-danger">이탈 위험</span>
+<span class="badge bg-secondary">일반</span>
+</td>
+</tr>
+<tr><td class="text-center text-muted" colspan="8">방문 기록이 없습니다.</td></tr>
+</tbody>
+</table></div></div>
+</main>
+<footer class="saas-footer">
+<div class="text-center">
+<p class="mb-1"><i class="bi bi-person-hearts"></i> 단골 고객 관리</p>
+<p class="mb-0 text-secondary small">© 2026 팀 프로젝트 | Spring Boot + JPA + MySQL + Spring AI</p>
+</div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+
+<script src="/js/modern-saas.js" defer></script>
+</body>
+</html>
