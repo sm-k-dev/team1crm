@@ -8,8 +8,8 @@
 - UI는 화면 이동 확인용이며 서버 인증·API·DB 기능은 제공하지 않음
 - `/index.html` 또는 `/pages/...` 경로로 접근
 - 빌드: `./gradlew bootRun` (JDK 25 필요)
-- `dev` 기본 프로필에서는 DB 자동 연결을 끄므로 UI 미리보기 가능
-- 기능 개발을 시작하면 DB/JPA 자동 구성 제외 설정을 제거하고 `dev`/`prod` DB 설정을 별도 재구성해야 함
+- 기본 프로필은 `dev`이며 `SERVER_PORT`, `DB_USERNAME`, `DB_PASSWORD`와 접속 가능한 MySQL이 필요합니다. `DB_URL`은 개발 환경에서만 로컬 기본값을 제공합니다.
+- 운영은 `SPRING_PROFILES_ACTIVE=prod`로 선택하며 `DB_URL`도 필수입니다. 운영 DB 스키마는 미리 준비해야 합니다 (`ddl-auto=validate`).
 
 ## 구조 검증
 

@@ -205,3 +205,4 @@ INSERT IGNORE INTO `image` (`id`, `original_file_name`, `stored_file_name`, `fil
 
 COMMIT;
 -- NOTE: Image rows contain metadata only; no actual image files are created.
+
