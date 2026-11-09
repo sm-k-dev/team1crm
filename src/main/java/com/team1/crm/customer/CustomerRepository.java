@@ -24,4 +24,17 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      * 작성일: 2026-11-06
      */
     List<Customer> findAllByStore_IdOrderByIdAsc(Long storeId);
+
+    /**
+     * 지정한 매장에 같은 전화번호를 가진 고객이 있는지 확인한다.
+     * 전화번호는 하이픈을 포함한 형식으로 통일한 값을 전달해야 한다.
+     *
+     * @param storeId 중복 여부를 확인할 매장의 ID
+     * @param phone 형식이 통일된 전화번호
+     * @return 같은 매장에 같은 전화번호가 있으면 true, 없으면 false
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-09
+     */
+    boolean existsByStore_IdAndPhone(Long storeId, String phone);
 }

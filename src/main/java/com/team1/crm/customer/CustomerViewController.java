@@ -24,7 +24,7 @@ public class CustomerViewController {
     private final CustomerService customerService;
 
     /**
-     * 개발용 매장의 고객 목록을 조회하여 고객 관리 화면을 표시한다.
+     * 개발용 매장의 고객 목록과 빈 고객 등록 Form을 화면에 전달한다.
      * 현재 로그인 사용자에 대한 매장 소유권 검증은 수행하지 않는다.
      *
      * @param model 화면에 전달할 데이터를 담는 객체
@@ -32,6 +32,7 @@ public class CustomerViewController {
      *
      * 작성자: 김순민
      * 작성일: 2026-11-06
+     * 변경노트 2026-11-09 김순민: 고객 등록용 Form 전달 추가
      */
     @GetMapping("/customers")
     public String list(Model model) {
@@ -39,6 +40,9 @@ public class CustomerViewController {
                 "customers",
                 customerService.findCustomers(PREVIEW_STORE_ID)
         );
+
+        // 고객 등록 입력칸과 연결할 빈 Form 객체를 화면에 전달한다.
+        model.addAttribute("customerForm", new CustomerForm());
 
         return "customer/list";
     }

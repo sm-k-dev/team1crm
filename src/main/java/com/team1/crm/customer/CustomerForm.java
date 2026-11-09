@@ -19,10 +19,6 @@ public class CustomerForm {
     private String name;
 
     @NotBlank(message = "고객 전화번호를 입력해 주세요.")
-    @Pattern(
-            regexp = "^010[0-9]{8}$",
-            message = "전화번호는 010으로 시작하는 숫자 11자리여야 합니다."
-    )
     private String phone;
 
     @Min(value = 1, message = "생일 월은 1월부터 12월까지 선택해 주세요.")
