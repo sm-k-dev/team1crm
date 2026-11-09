@@ -50,17 +50,111 @@
 </nav>
 <main class="container mb-5">
 <div class="mb-4"><div class="saas-page-eyebrow">ANALYTICS / INSIGHTS</div><h2 class="saas-page-title"><span>매장</span> 분석</h2><p class="saas-page-subtitle mb-0">매출 추이, 고객 방문 패턴, RFM 등급과 AI 마케팅 문구를 확인하세요.</p></div>
+<!--/*
+조회 월을 GET 요청의 month 값으로 전달하고 서버가 선택한 월을 입력 칸에 다시 표시한다.
+작성자 한상희
+작성일 2026-11-06
+*/-->
+<form class="d-flex flex-wrap align-items-end gap-2 mb-3" method="get" th:action="@{/analytics/dashboard}">
+<div><label for="analyticsMonth" class="form-label">조회 월</label><input id="analyticsMonth" class="form-control" type="month" name="month" th:value="${selectedMonth}" required/></div>
+<button class="btn btn-primary" type="submit">조회</button>
+</form>
+<!--/*
+테스트 매장 설정 여부를 안내하고 월간 집계 결과를 네 카드에 표시한다.
+설정이 없을 때는 대시를 표시한다. 방문이 없는 달은 0건으로 표시하고 재방문율은 대시로 표시한다.
+작성자 한상희
+작성일 2026-11-06
+변경노트 2026-11-06 한상희: 고정 숫자를 매출·방문 건수·방문 고객·재방문율 집계값으로 교체.
+*/-->
+<p class="small text-muted" th:if="${summary == null}">테스트 매장이 설정되면 DB 집계가 표시됩니다.</p>
+<p class="small text-muted" th:if="${summary != null}" th:text="|개발용 테스트 매장 #${previewStoreId}|"></p>
 <div class="row g-3 mb-4">
-<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold">0</div><div class="small text-muted">이번 달 매출</div></div></div></div>
-<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold">0</div><div class="small text-muted">방문 고객</div></div></div></div>
-<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold text-danger">0</div><div class="small text-muted">재방문율</div></div></div></div>
-<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold">0</div><div class="small text-muted">오늘 방문</div></div></div></div>
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold" th:text="${summary == null ? '—' : #numbers.formatInteger(summary.revenue(), 1, 'COMMA') + '원'}">—</div><div class="small text-muted">기간 매출</div></div></div></div>
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold" th:text="${summary == null ? '—' : summary.visits() + '건'}">—</div><div class="small text-muted">방문 건수</div></div></div></div>
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold" th:text="${summary == null ? '—' : summary.customers() + '명'}">—</div><div class="small text-muted">방문 고객</div></div></div></div>
+<div class="col-6 col-md-3"><div class="card text-center"><div class="card-body"><div class="fs-4 fw-bold" th:text="${repeatRate == null ? '—' : repeatRate + '%'}">—</div><div class="small text-muted">기간 내 재방문율</div></div></div></div>
 </div>
 <div class="row g-4 mb-4">
-<div class="col-lg-8"><div class="card"><div class="card-header fw-bold">월별 매출 · 방문 고객</div><div class="card-body"><canvas height="140" id="monthlyChart"></canvas></div></div></div>
+<!--/*
+선택 월을 포함한 6개월의 매출과 고유 방문 고객 수를 표와 차트에 표시한다.
+작성자 한상희
+작성일 2026-11-09
+*/-->
+<div class="col-lg-8">
+<div class="card">
+<div class="card-header fw-bold">월별 매출 · 방문 고객</div>
+<div class="card-body">
+<p class="small text-muted mb-0" th:if="${summary == null}">테스트 매장을 설정하면 월별 추이가 표시됩니다.</p>
+<div th:if="${summary != null}">
+<p class="small text-muted mb-2">선택한 월을 포함한 6개월</p>
+<canvas height="140" id="monthlyChart" aria-hidden="true" hidden></canvas>
+<table id="monthlyVisitTotals" class="table table-sm mb-0" aria-label="월별 매출과 방문 고객">
+<thead><tr><th scope="col">월</th><th scope="col" class="text-end">매출(원)</th><th scope="col" class="text-end">방문 고객(명)</th></tr></thead>
+<tbody>
+<tr th:each="point : ${summary.monthlyTrend()}">
+<th scope="row" th:text="${point.month()}"></th>
+<td class="text-end" th:text="${point.revenue()}"></td>
+<td class="text-end" th:text="${point.customers()}"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
 <div class="col-lg-4"><div class="card"><div class="card-header fw-bold">고객 등급</div><div class="card-body"><canvas height="200" id="gradeChart"></canvas></div></div></div>
-<div class="col-lg-6"><div class="card"><div class="card-header fw-bold">요일별 방문</div><div class="card-body"><canvas height="160" id="weekChart"></canvas></div></div></div>
-<div class="col-lg-6"><div class="card"><div class="card-header fw-bold">시간대별 방문</div><div class="card-body"><canvas height="160" id="hourChart"></canvas></div></div></div>
+<!--/*
+매장 미설정과 방문 기록 없음 상태를 구분해 안내한다.
+집계값은 월요일부터 일요일 순서의 표로 출력하며 차트 스크립트도 이 표를 사용한다.
+작성자 한상희
+작성일 2026-11-06
+변경노트 2026-11-06 한상희: 비어 있던 요일별 차트에 집계와 대체 표 연결.
+*/-->
+<div class="col-lg-6">
+<div class="card">
+<div class="card-header fw-bold">요일별 방문</div>
+<div class="card-body">
+<p class="small text-muted mb-0" th:if="${summary == null}">테스트 매장을 설정하면 요일별 방문이 표시됩니다.</p>
+<p class="small text-muted mb-0" th:if="${summary != null and summary.visits() == 0}">선택한 월에 방문 기록이 없습니다.</p>
+<div th:if="${summary != null and summary.visits() > 0}">
+<canvas height="160" id="weekChart" aria-hidden="true" hidden></canvas>
+<table id="weekdayVisitCounts" class="table table-sm mb-0" aria-label="요일별 방문 건수">
+<tbody>
+<tr th:each="day, status : ${ {'월', '화', '수', '목', '금', '토', '일'} }">
+<th scope="row" th:text="${day}"></th>
+<td class="text-end" th:text="${summary.weekdayVisits()[status.index]}"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!--/*
+선택한 월의 0시부터 23시까지의 방문 건수를 표시한다.
+작성자 한상희
+작성일 2026-11-09
+*/-->
+<div class="col-lg-6">
+<div class="card">
+<div class="card-header fw-bold">시간대별 방문</div>
+<div class="card-body">
+<p class="small text-muted mb-0" th:if="${summary == null}">테스트 매장을 설정하면 시간대별 방문이 표시됩니다.</p>
+<p class="small text-muted mb-0" th:if="${summary != null and summary.visits() == 0}">선택한 월에 방문 기록이 없습니다.</p>
+<div th:if="${summary != null and summary.visits() > 0}">
+<canvas height="160" id="hourChart" aria-hidden="true" hidden></canvas>
+<table id="hourlyVisitCounts" class="table table-sm mb-0" aria-label="시간대별 방문 건수">
+<tbody>
+<tr th:each="hour : ${#numbers.sequence(0, 23)}">
+<th scope="row" th:text="|${hour}시|"></th>
+<td class="text-end" th:text="${summary.hourlyVisits()[hour]}"></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div class="card mb-4 border-primary"><div class="card-body">
 <h5><i class="bi bi-robot"></i> AI 재방문 문구</h5>
@@ -86,8 +180,8 @@
 <td>
 <span class="badge bg-warning text-dark">VIP</span>
 <span class="badge bg-primary">단골</span>
-<span class="badge bg-danger">이탈 위험</span>
 <span class="badge bg-secondary">일반</span>
+<span class="badge bg-danger">이탈 위험</span>
 </td>
 </tr>
 <tr><td class="text-center text-muted" colspan="8">방문 기록이 없습니다.</td></tr>
@@ -101,8 +195,59 @@
 </div>
 </footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+/**
+ * 서버가 표시한 분석 표를 읽어 요일별·시간대별·월별 차트를 그린다.
+ *
+ * 작성자 한상희
+ * 작성일 2026-11-06
+ * 변경노트 2026-11-09 한상희: 공통 차트 출력에 시간대별 방문과 월별 추이 연결.
+ */
+(() => {
+    /**
+     * 표의 첫 열을 차트 라벨로, 나머지 열을 지표별 데이터로 사용한다.
+     * 라이브러리가 없으면 표를 유지하고, 차트를 그리면 표는 화면 읽기 도구에 제공한다.
+     *
+     * 작성자 한상희
+     * 작성일 2026-11-09
+     */
+    function drawChart(canvasId, tableId, series, scales) {
+        const canvas = document.getElementById(canvasId);
+        const table = document.getElementById(tableId);
+        if (!canvas || !table || typeof Chart === 'undefined') {
+            return;
+        }
 
+        const rows = Array.from(table.tBodies[0].rows);
+        const labels = rows.map(row => row.cells[0].textContent);
+        const datasets = series.map((dataset, index) => ({
+            ...dataset,
+            data: rows.map(row => Number(row.cells[index + 1].textContent))
+        }));
+        canvas.hidden = false;
+        new Chart(canvas, {
+            type: 'bar',
+            data: { labels, datasets },
+            options: { plugins: { legend: { display: series.length > 1 } }, scales }
+        });
+        table.classList.add('visually-hidden');
+    }
 
+    const visitSeries = [{ label: '방문 건수', backgroundColor: '#2563eb' }];
+    const visitScale = { y: { beginAtZero: true, ticks: { precision: 0 } } };
+    drawChart('weekChart', 'weekdayVisitCounts', visitSeries, visitScale);
+    drawChart('hourChart', 'hourlyVisitCounts', visitSeries, visitScale);
+
+    drawChart('monthlyChart', 'monthlyVisitTotals', [
+        { label: '매출(원)', yAxisID: 'revenue', backgroundColor: '#2563eb' },
+        { label: '방문 고객(명)', yAxisID: 'customers', backgroundColor: '#0f766e' }
+    ], {
+        revenue: { position: 'left', beginAtZero: true, title: { display: true, text: '매출(원)' } },
+        customers: { position: 'right', beginAtZero: true, ticks: { precision: 0 },
+            title: { display: true, text: '방문 고객(명)' }, grid: { drawOnChartArea: false } }
+    });
+})();
+</script>
 <script src="/js/modern-saas.js" th:src="@{/js/modern-saas.js}" defer></script>
 </body>
 </html>
