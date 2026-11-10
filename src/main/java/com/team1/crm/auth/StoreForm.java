@@ -1,10 +1,22 @@
+
 package com.team1.crm.auth;
 
-/**
- * Team implementation placeholder.
- * Original implementation is preserved in the separate Reference Bundle.
- * Define responsibilities and contracts with your team before coding.
- */
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class StoreForm {
-    // TODO: implement as assigned by team.
+
+    // 매장 이름
+    private String name;
+
+    // 업종 (카페, 음식점 등)
+    private String category;
+
+    // 매장 주소
+    private String address;
+
+    // 포인트 적립률 (기본 5%)
+    private int pointRate = 5;
 }
