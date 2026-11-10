@@ -205,6 +205,7 @@ INSERT IGNORE INTO `image` (`id`, `original_file_name`, `stored_file_name`, `fil
 
 COMMIT;
 -- NOTE: Image rows contain metadata only; no actual image files are created.
+<<<<<<< HEAD
 
 SELECT COUNT(*) FROM member;
 SELECT COUNT(*) FROM store;
@@ -214,3 +215,5 @@ SELECT COUNT(*) FROM point_history;
 SELECT COUNT(*) FROM coupon;
 SELECT COUNT(*) FROM image;
 
+=======
+>>>>>>> a349e0b3c840cf3109d8f5b1481fb5735566a5fe

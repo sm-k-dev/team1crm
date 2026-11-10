@@ -1,17 +1,39 @@
+
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
+
+<!--
+    + 회원가입 화면
+    역할: 사용자의 이메일, 비밀번호, 닉네임을 입력받아
+          JavaScript Fetch API를 통해 회원가입 요청을 전송합니다.
+          CSRF 토큰을 요청 헤더에 포함하고,
+          회원가입 성공 및 실패 메시지를 화면에 표시합니다.
+          회원가입 성공 시 로그인 페이지로 자동 이동합니다.
+    작성자: 황현우
+    일시: 2026-11-10
+-->
+
 <head>
+    <!-- 한글 인코딩 및 반응형 화면 설정 -->
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 
+    <!-- 브라우저 탭 제목 -->
     <title>단골 고객 관리</title>
+
+    <!-- Bootstrap CSS 및 아이콘 라이브러리 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
 
+    <!-- 프로젝트 공통 디자인 CSS -->
     <link rel="stylesheet" href="/css/modern-saas.css" th:href="@{/css/modern-saas.css}"/>
 
-
-    <!-- Spring Security CSRF 토큰 -->
+    <!--
+        + Spring Security CSRF 토큰
+        역할: 서버에서 제공한 CSRF 토큰과 헤더 이름을
+              HTML meta 태그에 저장합니다.
+              JavaScript에서 API 요청 시 해당 값을 사용합니다.
+    -->
     <meta name="_csrf"
           th:if="${_csrf != null}"
           th:content="${_csrf.token}"/>
@@ -21,111 +43,140 @@
           th:content="${_csrf.headerName}"/>
 
 </head>
+
 <body>
-<nav aria-label="주 메뉴" class="saas-shell-nav">
-    <div class="saas-topbar">
-        <a class="saas-mobile-brand" href="/" th:href="@{/}"><i class="bi bi-grid-1x2-fill"></i> StoreCRM</a>
-        <button aria-controls="saasSidebar" aria-expanded="false" aria-label="메뉴 열기" class="saas-menu-toggle" type="button"><i class="bi bi-list"></i></button>
-        <span class="saas-topbar-label">매장 고객 관리 시스템</span>
-        <div class="saas-topbar-right">
-            <span class="saas-user"><i class="bi bi-person-circle"></i> <span>사용자</span></span>
-            <a class="saas-logout" href="/login" th:href="@{/login}"><i class="bi bi-box-arrow-right"></i> 로그아웃</a>
-            <a class="saas-logout" href="/login" th:href="@{/login}">로그인</a>
-        </div>
-    </div>
-    <aside class="saas-sidebar" id="saasSidebar">
-        <a class="saas-brand" href="/" th:href="@{/}"><span class="saas-brand-icon"><i class="bi bi-bar-chart-steps"></i></span><span><strong>StoreCRM</strong><small>매장 고객 관리 시스템</small></span></a>
 
-        <div class="saas-nav-section">ADMIN</div>
-        <a class="saas-side-link" data-route="/admin/dashboard" href="/admin/dashboard" th:href="@{/admin/dashboard}"><i class="bi bi-speedometer2"></i> 사장님/매장 현황</a>
-        <a class="saas-side-link" data-route="/admin/stores" href="/admin/stores" th:href="@{/admin/stores}"><i class="bi bi-shop"></i> 매장 관리</a>
-        <a class="saas-side-link" data-route="/admin/owners" href="/admin/owners" th:href="@{/admin/owners}"><i class="bi bi-person-badge"></i> 사장님 계정 관리</a>
+<!-- 공통 네비게이션 메뉴 삽입 -->
+<nav th:replace="~{fragments/navigation :: navigation}"></nav>
 
-
-        <div class="saas-nav-section">WORKSPACE</div>
-        <a class="saas-side-link" data-route="/" href="/" th:href="@{/}"><i class="bi bi-grid-1x2"></i> 매장 운영 현황</a>
-        <a class="saas-side-link" data-route="unavailable" href="#" aria-disabled="true" title="매장 설정: 기능 구현 후 연결" onclick="return false;"><i class="bi bi-gear"></i> 내 매장 정보</a>
-        <div class="saas-nav-section">CUSTOMERS</div>
-        <a class="saas-side-link" data-route="/customers" href="/customers" th:href="@{/customers}"><i class="bi bi-people"></i> 고객 관리</a>
-        <div class="saas-nav-section">INSIGHTS</div>
-        <a class="saas-side-link" data-route="/analytics/dashboard" href="/analytics/dashboard" th:href="@{/analytics/dashboard}"><i class="bi bi-graph-up-arrow"></i> 분석 · RFM · AI</a>
-
-
-        <div class="saas-nav-section">ACCOUNT</div>
-        <a class="saas-side-link" data-route="/login" href="/login" th:href="@{/login}"><i class="bi bi-box-arrow-in-right"></i> 로그인</a>
-        <a class="saas-side-link" data-route="/signup" href="/signup" th:href="@{/signup}"><i class="bi bi-person-plus"></i> 회원가입</a>
-
-        <div class="saas-sidebar-bottom">Thymeleaf UI Preview<br/>Modern SaaS UI</div>
-    </aside>
-    <div aria-hidden="true" class="saas-overlay"></div>
-</nav>
+<!-- 회원가입 화면 메인 영역 -->
 <main class="container mb-5">
     <div class="row justify-content-center">
         <div class="col-md-5">
+
+            <!-- 회원가입 카드 영역 -->
             <div class="card shadow-sm">
                 <div class="card-body p-4">
-                    <h3 class="card-title text-center mb-4"><i class="bi bi-person-plus"></i> 회원가입</h3>
+
+                    <!-- 회원가입 화면 제목 -->
+                    <h3 class="card-title text-center mb-4">
+                        <i class="bi bi-person-plus"></i> 회원가입
+                    </h3>
+
+                    <!-- 회원가입 실패 시 오류 메시지 표시 영역 -->
+                    <!-- d-none : 초기 화면에서는 메시지를 숨김 -->
                     <div class="alert alert-danger d-none" id="errorMsg"></div>
+
+                    <!-- 회원가입 성공 시 안내 메시지 표시 영역 -->
                     <div class="alert alert-success d-none" id="successMsg"></div>
+
+                    <!--
+                        + 회원가입 입력 폼
+                        역할: 이메일, 비밀번호, 닉네임을 입력받습니다.
+                              JavaScript에서 submit 이벤트를 처리합니다.
+                    -->
                     <form id="signupForm">
+
+                        <!-- 이메일 입력 영역 -->
                         <div class="mb-3">
                             <label class="form-label" for="email">이메일</label>
-                            <input class="form-control" id="email" name="email" placeholder="example@test.com" required="" type="email"/>
+                            <input class="form-control" id="email" name="email"
+                                   placeholder="example@test.com" required="" type="email"/>
                         </div>
+
+                        <!-- 비밀번호 입력 영역 -->
+                        <!-- minlength / maxlength : 입력 가능한 글자 수 제한 -->
                         <div class="mb-3">
                             <label class="form-label" for="password">비밀번호</label>
-                            <input class="form-control" id="password" name="password" maxlength="20" minlength="4" placeholder="4~20자" required="" type="password"/>
+                            <input class="form-control" id="password" name="password"
+                                   maxlength="20" minlength="4"
+                                   placeholder="4~20자" required="" type="password"/>
                         </div>
+
+                        <!-- 닉네임 입력 영역 -->
+                        <!-- 2~10자 범위로 입력하도록 설정 -->
                         <div class="mb-3">
                             <label class="form-label" for="nickname">닉네임</label>
-                            <input class="form-control" id="nickname" name="nickname" maxlength="10" minlength="2" placeholder="2~10자" required="" type="text"/>
+                            <input class="form-control" id="nickname" name="nickname"
+                                   maxlength="10" minlength="2"
+                                   placeholder="2~10자" required="" type="text"/>
                         </div>
-                        <button class="btn btn-primary w-100 mb-3" type="submit"><i class="bi bi-person-plus"></i> 가입하기</button>
+
+                        <!-- 회원가입 요청 버튼 -->
+                        <button class="btn btn-primary w-100 mb-3" type="submit">
+                            <i class="bi bi-person-plus"></i> 가입하기
+                        </button>
+
                     </form>
+
+                    <!-- 로그인 페이지 이동 링크 -->
                     <div class="text-center">
                         <span class="text-muted">이미 계정이 있으신가요?</span>
                         <a href="/login" th:href="@{/login}">로그인</a>
                     </div>
+
                 </div>
             </div>
         </div>
     </div>
 </main>
+
+<!-- 공통 하단 푸터 영역 -->
 <footer class="saas-footer">
     <div class="text-center">
-        <p class="mb-1"><i class="bi bi-person-hearts"></i> 단골 고객 관리</p>
-        <p class="mb-0 text-secondary small">© 2026 팀 프로젝트 | Spring Boot + JPA + MySQL + Spring AI</p>
+        <p class="mb-1">
+            <i class="bi bi-person-hearts"></i> 단골 고객 관리
+        </p>
+        <p class="mb-0 text-secondary small">
+            © 2026 팀 프로젝트 | Spring Boot + JPA + MySQL + Spring AI
+        </p>
     </div>
 </footer>
 
+<!-- 프로젝트 공통 JavaScript 파일 -->
 <script src="/js/modern-saas.js" th:src="@{/js/modern-saas.js}" defer></script>
+
 <script>
+    /*
+     * + 회원가입 폼 제출 이벤트
+     * 역할: 회원가입 버튼을 클릭하면 입력값을 수집하고,
+     *       Fetch API를 통해 회원가입 요청을 서버에 전송합니다.
+     *       서버 응답에 따라 성공 또는 실패 메시지를 표시합니다.
+     */
     document.getElementById('signupForm').addEventListener('submit', async function(e) {
+
+        // 1. HTML Form의 기본 제출 동작 방지
         e.preventDefault();
 
+        // 2. 사용자가 입력한 이메일, 비밀번호, 닉네임 가져오기
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
         const nickname = document.getElementById('nickname').value;
 
+        // 3. 성공 및 오류 메시지를 표시할 HTML 요소 가져오기
         const errorMsg = document.getElementById('errorMsg');
         const successMsg = document.getElementById('successMsg');
 
         try {
-// HTML에 저장된 CSRF 토큰 가져오기
+
+            // 4. HTML meta 태그에 저장된 CSRF 토큰 가져오기
+            // ?. : 요소가 없으면 오류 대신 undefined 반환
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
             const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
 
-// 요청 헤더 준비
+            // 5. API 요청에 사용할 HTTP 헤더 준비
+            // JSON 형식으로 데이터를 전송하도록 설정
             const headers = {
                 'Content-Type': 'application/json'
             };
 
-// CSRF 토큰이 있으면 요청 헤더에 추가
+            // 6. CSRF 토큰이 존재하면 요청 헤더에 추가
             if (csrfToken && csrfHeader) {
                 headers[csrfHeader] = csrfToken;
             }
 
-// 회원가입 API 호출
+            // 7. 회원가입 API 호출
+            // 입력값을 JSON으로 변환하여 POST 요청 전송
             const response = await fetch('/api/members/signup', {
                 method: 'POST',
                 headers: headers,
@@ -133,25 +184,52 @@
                 body: JSON.stringify({ email, password, nickname })
             });
 
+            // 8. 회원가입 성공 여부 확인
             if (response.ok) {
+
+                // 성공 메시지 설정
                 successMsg.textContent = '회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.';
+
+                // 성공 메시지 표시
                 successMsg.classList.remove('d-none');
+
+                // 기존 오류 메시지 숨기기
                 errorMsg.classList.add('d-none');
+
+                // 9. 1.5초 후 로그인 페이지로 자동 이동
                 setTimeout(() => {
                     window.location.href = '/login';
                 }, 1500);
+
             } else {
+
+                // 10. 회원가입 실패 시 서버의 오류 응답 읽기
+                // JSON 파싱에 실패하면 빈 객체 사용
                 const data = await response.json().catch(() => ({}));
+
+                // 서버 오류 메시지가 없으면 기본 메시지 사용
                 errorMsg.textContent = data.message || '회원가입에 실패했습니다.';
+
+                // 오류 메시지 표시
                 errorMsg.classList.remove('d-none');
+
+                // 성공 메시지 숨기기
                 successMsg.classList.add('d-none');
             }
+
         } catch (err) {
+
+            // 11. 네트워크 오류 등 요청 처리 중 예외 발생
             errorMsg.textContent = '서버 통신 중 오류가 발생했습니다.';
+
+            // 오류 메시지 표시
             errorMsg.classList.remove('d-none');
+
+            // 성공 메시지 숨기기
             successMsg.classList.add('d-none');
         }
     });
 </script>
+
 </body>
 </html>

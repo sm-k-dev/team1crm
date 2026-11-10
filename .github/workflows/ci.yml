@@ -3,6 +3,7 @@ name: CI
 # 모든 PR과 main/develop 브랜치의 push에서 실행합니다.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main, develop]
   workflow_dispatch:
@@ -16,6 +17,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  branch-policy:
+    name: branch-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # PR 제목·본문 수정이나 대상 브랜치 변경에도 정책을 다시 확인합니다.
+      # PR 입력값은 셸 코드에 직접 넣지 않고 환경변수로 전달합니다.
+      - name: main 통합 경로 확인
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" ]]; then
+            if [[ "$HEAD_REF" != "develop" || "$HEAD_REPOSITORY" != "$TARGET_REPOSITORY" ]]; then
+              echo "::error::main 대상 PR은 같은 저장소의 develop 브랜치에서 생성해야 합니다."
+              exit 1
+            fi
+          fi
+          echo "브랜치 통합 경로 검사를 통과했습니다."
+
   build:
     name: build
     runs-on: ubuntu-latest
