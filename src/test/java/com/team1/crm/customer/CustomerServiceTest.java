@@ -8,6 +8,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -238,5 +245,406 @@ class CustomerServiceTest {
         verify(customerRepository).save(captor.capture());
 
         assertSame(anotherStore, captor.getValue().getStore());
+    }
+
+    /**
+     * 매장과 고객 ID가 일치하는 고객을 반환하는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("해당 매장에 속한 고객이면 상세 조회에 성공한다")
+    void findsCustomerInSelectedStore() {
+        Customer customer = mock(Customer.class);
+
+        when(customerRepository.findByIdAndStore_Id(
+                100L,
+                900101L
+        )).thenReturn(Optional.of(customer));
+
+        Customer result = customerService.findCustomer(
+                900101L,
+                100L
+        );
+
+        assertSame(customer, result);
+
+        verify(customerRepository).findByIdAndStore_Id(
+                100L,
+                900101L
+        );
+    }
+
+    /**
+     * 다른 매장 고객을 요청하면 해당 매장의 조회 결과가 없어 거부되는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("다른 매장 소속 고객은 상세 조회를 거부한다")
+    void rejectsCustomerFromAnotherStore() {
+        when(customerRepository.findByIdAndStore_Id(
+                100L,
+                900103L
+        )).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> customerService.findCustomer(900103L, 100L)
+        );
+
+        assertEquals(
+                "해당 매장의 고객을 찾을 수 없습니다.",
+                exception.getMessage()
+        );
+
+        verify(customerRepository).findByIdAndStore_Id(
+                100L,
+                900103L
+        );
+
+        verify(customerRepository, never()).findById(any(Long.class));
+    }
+
+    /**
+     * 존재하지 않는 고객 ID를 요청하면 조회를 거부하는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("존재하지 않는 고객은 상세 조회를 거부한다")
+    void rejectsMissingCustomer() {
+        when(customerRepository.findByIdAndStore_Id(
+                999999L,
+                900101L
+        )).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> customerService.findCustomer(900101L, 999999L)
+        );
+
+        assertEquals(
+                "해당 매장의 고객을 찾을 수 없습니다.",
+                exception.getMessage()
+        );
+    }
+
+    /**
+     * 자기 번호를 유지한 수정은 허용하고 정규화된 번호로 정보를 변경하는지 확인한다.
+     * 기존 매장과 생성일은 유지되어야 한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("자기 번호를 유지한 채 고객 정보를 수정할 수 있다")
+    void updatesCustomerWithOwnPhone() {
+        Customer customer = new Customer(
+                store,
+                "기존 이름",
+                "010-1234-5678",
+                3,
+                "기존 메모",
+                false,
+                null
+        );
+        var originalCreatedAt = customer.getCreatedAt();
+
+        when(customerRepository.findByIdAndStore_Id(
+                100L,
+                900101L
+        )).thenReturn(Optional.of(customer));
+
+        when(customerRepository.existsByStore_IdAndPhoneAndIdNot(
+                900101L,
+                "010-1234-5678",
+                100L
+        )).thenReturn(false);
+
+        CustomerForm form = validForm("01012345678");
+
+        customerService.updateCustomer(900101L, 100L, form);
+
+        assertAll(
+                () -> assertEquals("김단골", customer.getName()),
+                () -> assertEquals("010-1234-5678", customer.getPhone()),
+                () -> assertEquals(
+                        Integer.valueOf(5),
+                        customer.getBirthMonth()
+                ),
+                () -> assertEquals("테스트 고객", customer.getMemo()),
+                () -> assertTrue(customer.isAgreeMarketing()),
+                () -> assertSame(store, customer.getStore()),
+                () -> assertEquals(
+                        originalCreatedAt,
+                        customer.getCreatedAt()
+                )
+        );
+
+        verify(customerRepository).existsByStore_IdAndPhoneAndIdNot(
+                900101L,
+                "010-1234-5678",
+                100L
+        );
+    }
+
+    /**
+     * 다른 고객의 번호로 변경하려 하면 거부하고 기존 정보를 유지하는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("다른 고객의 번호로 수정하면 거부하고 기존 정보를 유지한다")
+    void rejectsUpdateWithAnotherCustomersPhone() {
+        Customer customer = new Customer(
+                store,
+                "기존 이름",
+                "010-1111-2222",
+                3,
+                "기존 메모",
+                false,
+                null
+        );
+
+        when(customerRepository.findByIdAndStore_Id(
+                100L,
+                900101L
+        )).thenReturn(Optional.of(customer));
+
+        when(customerRepository.existsByStore_IdAndPhoneAndIdNot(
+                900101L,
+                "010-1234-5678",
+                100L
+        )).thenReturn(true);
+
+        CustomerForm form = validForm("01012345678");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> customerService.updateCustomer(
+                        900101L,
+                        100L,
+                        form
+                )
+        );
+
+        assertAll(
+                () -> assertEquals(
+                        "이미 등록된 고객입니다.",
+                        exception.getMessage()
+                ),
+                () -> assertEquals("기존 이름", customer.getName()),
+                () -> assertEquals("010-1111-2222", customer.getPhone()),
+                () -> assertEquals(
+                        Integer.valueOf(3),
+                        customer.getBirthMonth()
+                ),
+                () -> assertEquals("기존 메모", customer.getMemo()),
+                () -> assertFalse(customer.isAgreeMarketing())
+        );
+
+        verify(customerRepository, never()).save(any(Customer.class));
+    }
+
+    /**
+     * 해당 매장에 속하지 않는 고객은 수정 전에 거부하는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("다른 매장 고객은 중복 검사와 수정 전에 거부한다")
+    void rejectsUpdateForCustomerFromAnotherStore() {
+        when(customerRepository.findByIdAndStore_Id(
+                100L,
+                900103L
+        )).thenReturn(Optional.empty());
+
+        CustomerForm form = validForm("01012345678");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> customerService.updateCustomer(
+                        900103L,
+                        100L,
+                        form
+                )
+        );
+
+        assertEquals(
+                "해당 매장의 고객을 찾을 수 없습니다.",
+                exception.getMessage()
+        );
+
+        verify(customerRepository).findByIdAndStore_Id(
+                100L,
+                900103L
+        );
+
+        verifyNoMoreInteractions(customerRepository);
+    }
+
+    /**
+     * 검색어가 없거나 공백뿐이면 선택 매장의 전체 고객 페이지를 조회하는지 확인한다.
+     *
+     * @param keyword 비어 있는 검색어
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    @DisplayName("검색어가 없으면 선택 매장의 전체 고객 페이지를 조회한다")
+    void blankKeywordLoadsAllCustomersPage(String keyword) {
+        Page<Customer> expectedPage = new PageImpl<>(List.of());
+
+        when(customerRepository.findAllByStore_Id(
+                eq(900101L),
+                any(Pageable.class)
+        )).thenReturn(expectedPage);
+
+        Page<Customer> result = customerService.findCustomerPage(
+                900101L,
+                keyword,
+                0
+        );
+
+        assertSame(expectedPage, result);
+
+        ArgumentCaptor<Pageable> captor =
+                ArgumentCaptor.forClass(Pageable.class);
+
+        verify(customerRepository).findAllByStore_Id(
+                eq(900101L),
+                captor.capture()
+        );
+
+        Pageable pageable = captor.getValue();
+
+        assertAll(
+                () -> assertEquals(0, pageable.getPageNumber()),
+                () -> assertEquals(10, pageable.getPageSize()),
+                () -> assertEquals(
+                        Sort.by(Sort.Direction.ASC, "id"),
+                        pageable.getSort()
+                )
+        );
+
+        verifyNoMoreInteractions(customerRepository);
+    }
+
+    /**
+     * 검색어의 앞뒤 공백을 제거하고 매장·페이지 조건을 전달하는지 확인한다.
+     *
+     * @param keyword 사용자가 입력한 검색어
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"단골", "5678"})
+    @DisplayName("검색어의 앞뒤 공백을 제거하고 지정한 페이지를 검색한다")
+    void trimsKeywordAndSearchesRequestedPage(String keyword) {
+        Customer customer = mock(Customer.class);
+        Page<Customer> expectedPage =
+                new PageImpl<>(List.of(customer));
+
+        when(customerRepository.searchCustomerPage(
+                eq(900101L),
+                eq(keyword),
+                any(Pageable.class)
+        )).thenReturn(expectedPage);
+
+        Page<Customer> result = customerService.findCustomerPage(
+                900101L,
+                "  " + keyword + "  ",
+                1
+        );
+
+        assertSame(expectedPage, result);
+
+        ArgumentCaptor<Pageable> captor =
+                ArgumentCaptor.forClass(Pageable.class);
+
+        verify(customerRepository).searchCustomerPage(
+                eq(900101L),
+                eq(keyword),
+                captor.capture()
+        );
+
+        Pageable pageable = captor.getValue();
+
+        assertAll(
+                () -> assertEquals(1, pageable.getPageNumber()),
+                () -> assertEquals(10, pageable.getPageSize()),
+                () -> assertEquals(10L, pageable.getOffset()),
+                () -> assertEquals(
+                        Sort.by(Sort.Direction.ASC, "id"),
+                        pageable.getSort()
+                )
+        );
+
+        verifyNoMoreInteractions(customerRepository);
+    }
+
+    /**
+     * 음수 페이지 요청을 첫 페이지로 보정하는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("음수 페이지는 첫 페이지로 처리한다")
+    void negativePageUsesFirstPage() {
+        when(customerRepository.findAllByStore_Id(
+                eq(900101L),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<Customer>(List.of()));
+
+        customerService.findCustomerPage(900101L, "", -1);
+
+        ArgumentCaptor<Pageable> captor =
+                ArgumentCaptor.forClass(Pageable.class);
+
+        verify(customerRepository).findAllByStore_Id(
+                eq(900101L),
+                captor.capture()
+        );
+
+        assertEquals(0, captor.getValue().getPageNumber());
+    }
+
+    /**
+     * 유효하지 않은 매장 ID는 Repository 조회 전에 거부하는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Test
+    @DisplayName("매장 ID가 없거나 양수가 아니면 페이지 조회를 거부한다")
+    void invalidStoreIdRejectsPageLookup() {
+        for (Long storeId : new Long[]{null, 0L, -1L}) {
+            IllegalArgumentException exception = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> customerService.findCustomerPage(
+                            storeId,
+                            "단골",
+                            0
+                    )
+            );
+
+            assertEquals(
+                    "매장 정보를 확인해 주세요.",
+                    exception.getMessage()
+            );
+        }
+
+        verifyNoInteractions(customerRepository);
     }
 }
