@@ -225,11 +225,15 @@
 작성자 한상희
 작성일 2026-11-10
 변경노트 2026-11-10 한상희: 정렬에 필요한 표시 전 날짜·건수·금액을 행에 전달.
+변경노트 2026-11-10 한상희: 전체 고객 중 상위 세 명에게 금·은·동 왕관을 표시.
 */-->
 <th:block th:if="${rfm != null}">
 <tr th:each="row : ${rfm.rows()}"
-    th:attr="data-rfm-grade=${row.grade()},data-last-visit=${row.lastVisitDate()},data-visits=${row.visits()},data-amount=${row.totalAmount()}">
-<td th:text="${row.customerName()}"></td>
+    th:attr="data-rfm-grade=${row.grade()},data-rfm-score=${row.r() + row.f() + row.m()},
+             data-last-visit=${row.lastVisitDate()},data-visits=${row.visits()},data-amount=${row.totalAmount()}">
+<td>
+<span th:text="${row.customerName()}"></span>
+</td>
 <td th:text="${row.lastVisitDate()}"></td>
 <td th:text="${row.visits()}"></td>
 <td th:text="${#numbers.formatInteger(row.totalAmount(), 1, 'COMMA')}"></td>
@@ -248,6 +252,13 @@
 <tr th:if="${rfm != null and rfm.rows().isEmpty()}"><td class="text-center text-muted" colspan="8">선택한 월에 방문 기록이 없습니다.</td></tr>
 </tbody>
 </table></div></div>
+<template id="rfmRankCrown">
+<span class="ms-1 align-middle" role="img">
+<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+<path d="M1 4.5 4.7 7 8 2l3.3 5L15 4.5l-1.5 8h-11L1 4.5ZM3 13.5h10V15H3z"/>
+</svg>
+</span>
+</template>
 </main>
 <footer class="saas-footer">
 <div class="text-center">
@@ -263,6 +274,8 @@
  *
  * 작성자 한상희
  * 작성일 2026-11-10
+ * 변경노트 2026-11-10 한상희: 표 정렬과 별개로 상위 세 고객에게 순위 왕관을 표시.
+ * 변경노트 2026-11-10 한상희: 높은 등급순에 왕관 순위 기준을 적용.
  */
 (() => {
     const sort = document.getElementById('rfmSort');
@@ -276,12 +289,28 @@
     const nameOrder = new Intl.Collator('ko');
     const compare = {
         recent: (a, b) => b.dataset.lastVisit.localeCompare(a.dataset.lastVisit),
-        'grade-high': (a, b) => gradeRank.get(a.dataset.rfmGrade) - gradeRank.get(b.dataset.rfmGrade),
+        // 등급, 점수, 결제액이 모두 같으면 최근 방문순인 서버 결과를 유지한다.
+        'grade-high': (a, b) =>
+            gradeRank.get(a.dataset.rfmGrade) - gradeRank.get(b.dataset.rfmGrade)
+            || Number(b.dataset.rfmScore) - Number(a.dataset.rfmScore)
+            || compare.amount(a, b),
         'grade-low': (a, b) => gradeRank.get(b.dataset.rfmGrade) - gradeRank.get(a.dataset.rfmGrade),
         visits: (a, b) => Number(b.dataset.visits) - Number(a.dataset.visits),
         amount: (a, b) => Number(BigInt(b.dataset.amount) - BigInt(a.dataset.amount)),
-        name: (a, b) => nameOrder.compare(a.cells[0].textContent, b.cells[0].textContent)
+        name: (a, b) => nameOrder.compare(a.cells[0].textContent.trim(), b.cells[0].textContent.trim())
     };
+
+    const crownTemplate = document.getElementById('rfmRankCrown');
+    const crownColors = ['#a66a00', '#64748b', '#a3532a'];
+    const topRows = [...rows].sort(compare['grade-high']).slice(0, crownColors.length);
+    topRows.forEach((row, index) => {
+        const crown = crownTemplate.content.firstElementChild.cloneNode(true);
+        crown.style.color = crownColors[index];
+        crown.title = (index + 1) + '위';
+        crown.setAttribute('aria-label', crown.title);
+        row.cells[0].append(crown);
+    });
+
     sort.addEventListener('change', () => {
         const sortedRows = [...rows].sort(compare[sort.value]);
         for (const row of sortedRows) {
