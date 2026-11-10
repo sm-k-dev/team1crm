@@ -1,10 +1,12 @@
+
 package com.team1.crm.auth;
 
-/**
- * Team implementation placeholder.
- * Original implementation is preserved in the separate Reference Bundle.
- * Define responsibilities and contracts with your team before coding.
- */
-public interface StoreRepository {
-    // TODO: implement as assigned by team.
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
+
+public interface StoreRepository extends JpaRepository<Store, Long> {
+
+    // 로그인한 회원이 소유한 모든 매장 조회
+    List<Store> findByOwnerId(Long memberId);
+
 }

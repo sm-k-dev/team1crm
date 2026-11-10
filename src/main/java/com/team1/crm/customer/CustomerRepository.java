@@ -25,6 +25,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      */
     List<Customer> findAllByStore_IdOrderByIdAsc(Long storeId);
 
+    // 특정 매장에 등록된 고객 수 조회
+    long countByStoreId(Long storeId);
+
     /**
      * 지정한 매장에 같은 전화번호를 가진 고객이 있는지 확인한다.
      * 전화번호는 하이픈을 포함한 형식으로 통일한 값을 전달해야 한다.
