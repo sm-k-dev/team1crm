@@ -1,17 +1,39 @@
+
 <!DOCTYPE html>
 <html lang="ko"
       xmlns:th="http://www.thymeleaf.org"
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<!--
+    + CRM 메인 대시보드 및 매장 등록 화면
+    역할: 로그인 여부에 따라 사용자 화면을 구분하고,
+          로그인한 회원의 매장 목록과 운영 현황을 표시합니다.
+          매장 선택 및 신규 매장 등록 기능을 제공하며,
+          JavaScript Fetch API를 이용하여 매장 등록 요청을 처리합니다.
+    작성자: 황현우
+    일시: 2026-11-10
+-->
+
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <!-- 한글 인코딩 및 반응형 화면 설정 -->
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 
-<title>단골 고객 관리</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+    <!-- 브라우저 탭 제목 -->
+    <title>단골 고객 관리</title>
 
-<link rel="stylesheet" href="/css/modern-saas.css" th:href="@{/css/modern-saas.css}"/>
-    <!-- CSRF 토큰 정보 -->
+    <!-- Bootstrap CSS 및 아이콘 라이브러리 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+
+    <!-- 프로젝트 공통 디자인 CSS -->
+    <link rel="stylesheet" href="/css/modern-saas.css" th:href="@{/css/modern-saas.css}"/>
+
+    <!--
+        + Spring Security CSRF 토큰
+        역할: 서버에서 제공한 CSRF 토큰과 헤더 이름을 저장하여
+              JavaScript의 매장 등록 API 요청에 사용합니다.
+    -->
     <meta name="_csrf"
           th:if="${_csrf != null}"
           th:content="${_csrf.token}"/>
@@ -20,11 +42,23 @@
           th:if="${_csrf != null}"
           th:content="${_csrf.headerName}"/>
 </head>
+
 <body>
+
+<!-- 공통 네비게이션 메뉴 삽입 -->
 <nav th:replace="~{fragments/navigation :: navigation}"></nav>
+
+<!-- CRM 메인 화면 영역 -->
 <main class="container mb-5">
-<div class="saas-home-heading"><div><div class="saas-page-eyebrow">OVERVIEW / DASHBOARD</div><h1 class="saas-page-title">매장 운영 현황</h1><p class="saas-page-subtitle mb-0">고객, 방문, 매출 현황을 한눈에 확인하세요.</p></div></div>
-    <!-- 로그인하지 않은 경우에만 표시 -->
+
+    <!-- 대시보드 제목 및 설명 -->
+    <div class="saas-home-heading"><div><div class="saas-page-eyebrow">OVERVIEW / DASHBOARD</div><h1 class="saas-page-title">매장 운영 현황</h1><p class="saas-page-subtitle mb-0">고객, 방문, 매출 현황을 한눈에 확인하세요.</p></div></div>
+
+    <!--
+        + 비로그인 사용자 안내
+        역할: 로그인하지 않은 사용자에게 로그인 안내 메시지를 표시합니다.
+        sec:authorize="isAnonymous()" : 익명 사용자에게만 표시
+    -->
     <div class="alert alert-secondary"
          sec:authorize="isAnonymous()">
 
@@ -33,17 +67,29 @@
 
     </div>
 
+    <!--
+        + 로그인 회원의 매장 운영 대시보드
+        역할: 로그인한 회원에게 매장 선택 영역과
+              고객, 방문, 매출, 재방문율 현황을 표시합니다.
+        sec:authorize="isAuthenticated()" : 인증된 사용자에게만 표시
+    -->
     <!--/* 로그인 + 매장 있음 : summary 맵의 값을 #numbers.formatInteger 로 천 단위 쉼표 */-->
     <!-- 로그인한 회원에게만 표시 -->
     <div sec:authorize="isAuthenticated()">
+
         <!-- 내 매장 선택 영역 -->
         <div class="saas-welcome">
 
             <div class="saas-page-eyebrow">MY STORE</div>
 
-            <!-- 등록된 매장이 있는 경우 -->
+            <!--
+                + 등록된 매장이 있는 경우
+                역할: 매장 목록과 현재 선택된 매장 이름을 표시합니다.
+                th:if : 매장 목록이 null이 아니고 비어 있지 않은 경우 출력
+            -->
             <div th:if="${stores != null and !#lists.isEmpty(stores)}">
 
+                <!-- 기본 선택된 매장 이름 출력 -->
                 <h2 class="mt-2"
                     id="selectedStoreName"
                     th:text="${selectedStore.name}">
@@ -52,6 +98,13 @@
 
                 <p>운영할 매장을 선택하세요.</p>
 
+                <!--
+                    매장 선택 드롭다운
+                    th:each : 등록된 매장 목록을 반복하여 option 생성
+                    th:value : 매장 ID 설정
+                    th:text : 매장 이름 표시
+                    th:selected : 기본 선택 매장 지정
+                -->
                 <select class="form-select mt-3"
                         id="storeSelect"
                         style="max-width: 400px;">
@@ -67,7 +120,10 @@
 
             </div>
 
-            <!-- 등록된 매장이 없는 경우 -->
+            <!--
+                + 등록된 매장이 없는 경우
+                역할: 회원에게 등록된 매장이 없다는 안내를 표시합니다.
+            -->
             <div th:if="${stores == null or #lists.isEmpty(stores)}">
 
                 <h2 class="mt-2">등록된 매장이 없습니다.</h2>
@@ -76,21 +132,50 @@
 
             </div>
 
-        </div><div class="row g-3">
-<div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-people-fill"></i></span><div><div class="saas-kpi-label">등록 고객</div><div class="saas-kpi-value">0명</div></div></div></div></div>
-<div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-person-check-fill"></i></span><div><div class="saas-kpi-label">오늘 방문</div><div class="saas-kpi-value">0건</div></div></div></div></div>
-<div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-wallet2"></i></span><div><div class="saas-kpi-label">이번 달 매출</div><div class="saas-kpi-value">0원</div></div></div></div></div>
-<div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-arrow-repeat"></i></span><div><div class="saas-kpi-label">재방문율</div><div class="saas-kpi-value">0%</div></div></div></div></div>
-</div>
-<div class="saas-home-actions"><a class="btn btn-primary" href="/customers" th:href="@{/customers}"><i class="bi bi-people me-1"></i> 고객 관리</a><a class="btn btn-outline-primary" href="/analytics/dashboard" th:href="@{/analytics/dashboard}"><i class="bi bi-bar-chart-line me-1"></i> 분석 대시보드</a></div>
-<p class="saas-note">상세 매출 추이, RFM 고객 등급 및 AI 마케팅 문구는 분석 대시보드에서 확인할 수 있습니다.</p>
+        </div>
+
+        <!--
+            + 매장 운영 현황 KPI 영역
+            역할: 등록 고객, 오늘 방문, 이번 달 매출,
+                  재방문율 정보를 카드 형태로 표시합니다.
+            현재 화면에는 각 항목의 초기 표시값이 0으로 작성되어 있습니다.
+        -->
+        <div class="row g-3">
+
+            <!-- 등록 고객 수 -->
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-people-fill"></i></span><div><div class="saas-kpi-label">등록 고객</div><div class="saas-kpi-value">0명</div></div></div></div></div>
+
+            <!-- 오늘 방문 건수 -->
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-person-check-fill"></i></span><div><div class="saas-kpi-label">오늘 방문</div><div class="saas-kpi-value">0건</div></div></div></div></div>
+
+            <!-- 이번 달 매출 -->
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-wallet2"></i></span><div><div class="saas-kpi-label">이번 달 매출</div><div class="saas-kpi-value">0원</div></div></div></div></div>
+
+            <!-- 고객 재방문율 -->
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-arrow-repeat"></i></span><div><div class="saas-kpi-label">재방문율</div><div class="saas-kpi-value">0%</div></div></div></div></div>
+
+        </div>
+
+        <!-- 고객 관리 및 분석 대시보드 이동 버튼 -->
+        <div class="saas-home-actions"><a class="btn btn-primary" href="/customers" th:href="@{/customers}"><i class="bi bi-people me-1"></i> 고객 관리</a><a class="btn btn-outline-primary" href="/analytics/dashboard" th:href="@{/analytics/dashboard}"><i class="bi bi-bar-chart-line me-1"></i> 분석 대시보드</a></div>
+
+        <!-- 분석 대시보드 기능 안내 -->
+        <p class="saas-note">상세 매출 추이, RFM 고객 등급 및 AI 마케팅 문구는 분석 대시보드에서 확인할 수 있습니다.</p>
+
     </div>
+
+    <!--
+        + 신규 매장 등록 영역
+        역할: 로그인한 회원에게 매장 등록 입력 폼을 제공합니다.
+        매장 이름, 업종, 주소, 포인트 적립률을 입력받습니다.
+    -->
     <!-- 로그인한 회원에게만 매장 등록 폼 표시 -->
     <div sec:authorize="isAuthenticated()">
 
         <div class="card shadow-sm">
             <div class="card-body p-4">
 
+                <!-- 매장 등록 제목 -->
                 <h4 class="card-title">
                     <i class="bi bi-shop-window"></i> 매장 등록
                 </h4>
@@ -99,10 +184,13 @@
                     매장을 등록하면 고객·방문·분석 기능을 쓸 수 있습니다.
                 </p>
 
+                <!-- 매장 등록 성공 및 실패 메시지 출력 영역 -->
                 <div class="alert alert-danger d-none" id="storeMsg"></div>
 
+                <!-- 매장 등록 입력 폼 -->
                 <form class="row g-2" id="storeForm">
 
+                    <!-- 매장 이름 입력 (필수, 최대 50자) -->
                     <div class="col-md-6">
                         <input class="form-control"
                                id="sName"
@@ -111,6 +199,7 @@
                                required/>
                     </div>
 
+                    <!-- 매장 업종 입력 (최대 30자) -->
                     <div class="col-md-6">
                         <input class="form-control"
                                id="sCategory"
@@ -118,6 +207,7 @@
                                placeholder="업종 (예: 카페, 한식)"/>
                     </div>
 
+                    <!-- 매장 주소 입력 (최대 200자) -->
                     <div class="col-md-9">
                         <input class="form-control"
                                id="sAddress"
@@ -125,6 +215,7 @@
                                placeholder="주소"/>
                     </div>
 
+                    <!-- 포인트 적립률 입력 (0~20%, 기본값 5%) -->
                     <div class="col-md-3">
                         <div class="input-group">
                             <input class="form-control"
@@ -137,6 +228,7 @@
                         </div>
                     </div>
 
+                    <!-- 매장 등록 요청 버튼 -->
                     <div class="col-12">
                         <button class="btn btn-primary"
                                 type="submit"
@@ -152,18 +244,28 @@
 
     </div>
 </main>
+
+<!-- 공통 하단 푸터 -->
 <footer class="saas-footer">
-<div class="text-center">
-<p class="mb-1"><i class="bi bi-person-hearts"></i> 단골 고객 관리</p>
-<p class="mb-0 text-secondary small">© 2026 팀 프로젝트 | Spring Boot + JPA + MySQL + Spring AI</p>
-</div>
+    <div class="text-center">
+        <p class="mb-1"><i class="bi bi-person-hearts"></i> 단골 고객 관리</p>
+        <p class="mb-0 text-secondary small">© 2026 팀 프로젝트 | Spring Boot + JPA + MySQL + Spring AI</p>
+    </div>
 </footer>
 
+<!-- 프로젝트 공통 JavaScript -->
 <script src="/js/modern-saas.js"
         th:src="@{/js/modern-saas.js}"
         defer></script>
 
 <script th:inline="javascript">
+
+    /*
+     * + 매장 등록 JavaScript
+     * 역할: 매장 등록 폼의 입력값을 검사하고
+     *       Fetch API를 통해 서버에 매장 등록 요청을 전송합니다.
+     *       서버 응답에 따라 성공 또는 오류 메시지를 표시합니다.
+     */
     document.addEventListener("DOMContentLoaded", function () {
 
         // 1. 매장 등록 폼 가져오기
@@ -193,11 +295,13 @@
             };
 
             // 5. 입력값 검사
+            // 매장 이름이 비어 있으면 등록 중단
             if (!storeData.name) {
                 showMessage("매장 이름을 입력해주세요.", "danger");
                 return;
             }
 
+            // 적립률이 정수가 아니거나 0~20 범위를 벗어나면 등록 중단
             if (!Number.isInteger(storeData.pointRate) ||
                 storeData.pointRate < 0 ||
                 storeData.pointRate > 20) {
@@ -206,7 +310,7 @@
                 return;
             }
 
-            // 중복 클릭 방지
+            // 중복 클릭 방지를 위해 등록 버튼 비활성화
             submitBtn.disabled = true;
             submitBtn.textContent = "등록 중...";
 
@@ -229,17 +333,21 @@
                 }
 
                 // 매장 등록 API 호출
+                // 입력한 매장 정보를 JSON으로 변환하여 POST 요청
                 const response = await fetch("/api/stores", {
                     method: "POST",
                     headers: headers,
                     credentials: "same-origin",
                     body: JSON.stringify(storeData)
                 });
+
                 // 7. 서버 응답 읽기
                 const responseText = await response.text();
 
+                // 서버 응답 데이터를 저장할 객체
                 let result = {};
 
+                // JSON 응답이면 객체로 변환하고, 아니면 메시지로 저장
                 try {
                     result = JSON.parse(responseText);
                 } catch (e) {
@@ -249,10 +357,15 @@
                 // 8. 등록 실패
                 if (!response.ok) {
 
+                    // 인증되지 않은 경우
                     if (response.status === 401) {
                         showMessage("로그인이 필요합니다.", "danger");
+
+                        // 접근 권한 또는 보안 검증에 실패한 경우
                     } else if (response.status === 403) {
                         showMessage("매장 등록 권한이 없거나 보안 검증에 실패했습니다.", "danger");
+
+                        // 그 외 오류가 발생한 경우
                     } else {
                         showMessage(
                             result.message || "매장 등록에 실패했습니다.",
@@ -274,8 +387,10 @@
 
             } catch (error) {
 
+                // 서버 통신 오류 발생 시 콘솔에 기록
                 console.error("매장 등록 오류:", error);
 
+                // 사용자에게 오류 메시지 표시
                 showMessage(
                     "서버와 통신하는 중 오류가 발생했습니다.",
                     "danger"
@@ -283,12 +398,18 @@
 
             } finally {
 
+                // 등록 성공 또는 실패 후 버튼 상태 복구
                 submitBtn.disabled = false;
                 submitBtn.innerHTML =
                     '<i class="bi bi-check-circle me-1"></i> 등록';
             }
         });
 
+        /*
+         * + 매장 등록 결과 메시지 출력
+         * 역할: 성공 또는 실패 메시지에 맞는 Bootstrap 스타일을 적용하고,
+         *       사용자에게 결과를 표시합니다.
+         */
         // 10. 성공 / 오류 메시지 출력
         function showMessage(message, type) {
 
@@ -300,15 +421,24 @@
 </script>
 
 <script>
+
+    /*
+     * + 선택한 매장 이름 변경
+     * 역할: 매장 선택 드롭다운에서 다른 매장을 선택하면
+     *       화면 상단에 표시된 매장 이름을 변경합니다.
+     */
     document.addEventListener("DOMContentLoaded", function () {
 
+        // 매장 선택 드롭다운과 매장 이름 출력 요소 가져오기
         const storeSelect = document.getElementById("storeSelect");
         const selectedStoreName = document.getElementById("selectedStoreName");
 
+        // 매장 선택 영역이 존재하지 않으면 실행 중단
         if (!storeSelect || !selectedStoreName) {
             return;
         }
 
+        // 사용자가 다른 매장을 선택했을 때 실행
         storeSelect.addEventListener("change", function () {
 
             // 선택한 option의 매장 이름 가져오기
@@ -322,8 +452,6 @@
 
     });
 </script>
-
-
 
 </body>
 </html>

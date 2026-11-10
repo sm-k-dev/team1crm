@@ -15,13 +15,35 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.List;
 
-@Controller
-@Profile("dev")
-@RequiredArgsConstructor
+/**
+ * + CRM 홈페이지 화면 컨트롤러
+ * 역할: 사용자의 로그인 상태를 확인하고,
+ *      로그인한 회원이 소유한 매장 목록을 조회하여
+ *      CRM 메인 화면에 전달합니다.
+ *      매장이 존재하면 첫 번째 매장을 기본 매장으로 선택합니다.
+ * 작성자: 황현우
+ * 일시: 2026-11-10
+ */
+
+@Controller // HTML 화면을 반환하는 Spring MVC 컨트롤러
+@Profile("dev") // dev 프로필이 활성화된 환경에서만 Bean 등록
+@RequiredArgsConstructor // final 필드를 이용한 생성자 자동 생성
 public class HomeController {
 
+    // 로그인한 회원의 매장 목록을 조회하는 서비스
     private final StoreService storeService;
 
+    /**
+     * + CRM 홈페이지 출력
+     * 역할: 홈페이지 접속 시 로그인 상태를 확인하고,
+     *      로그인한 회원의 이메일을 기준으로 매장 목록을 조회합니다.
+     *      조회한 매장 목록과 기본 선택 매장을 Model에 저장한 뒤
+     *      CRM 메인 화면을 반환합니다.
+     *
+     * @param authentication 현재 로그인한 회원의 인증 정보
+     * @param model HTML 화면에 데이터를 전달하는 객체
+     * @return CRM 메인 화면 경로
+     */
     @GetMapping({"/", "/index.html"})
     public String home(
             Authentication authentication,
