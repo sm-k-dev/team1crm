@@ -15,6 +15,7 @@ import java.util.List;
  * 작성일 2026-11-05
  * 변경노트 2026-11-06 한상희: 대시보드에 필요한 고객별 합계와 요일별 방문 건수 조회 추가.
  * 변경노트 2026-11-09 한상희: 시간대별 방문과 월별 매출·방문 고객 조회 추가.
+ * 변경노트 2026-11-10 한상희: 매장과 기간을 제한한 고객별 RFM 점수 조회 추가.
  */
 public interface AnalyticsRepository extends Repository<Visit, Long> {
     /**
@@ -113,6 +114,70 @@ public interface AnalyticsRepository extends Repository<Visit, Long> {
     List<MonthlyTotal> summarizeByMonth(@Param("storeId") long storeId,
                                        @Param("start") LocalDateTime start,
                                        @Param("end") LocalDateTime end);
+
+    /**
+     * 방문 고객의 최근성·빈도·금액을 각각 NTILE(5)로 점수화한다.
+     * 높은 값부터 나누어 가장 좋은 구간에 5점을 부여하고, 동점 순서는 고객 ID로 고정한다.
+     *
+     * 작성자 한상희
+     * 작성일 2026-11-10
+     *
+     * @param storeId 호출부에서 소유권을 검증한 매장 ID
+     * @param start 포함하는 시작 시각
+     * @param end 제외하는 종료 시각
+     * @return 선택 기간에 방문한 고객별 집계와 점수
+     */
+    @Query(value = """
+            with customer_visits as (
+                select c.id as customerId, c.name as customerName, max(v.visited_at) as lastVisit,
+                       count(*) as visitCount, sum(v.amount) as totalAmount
+                from visit v
+                join customer c on c.id = v.customer_id
+                where c.store_id = :storeId
+                  and v.visited_at >= :start
+                  and v.visited_at < :end
+                group by c.id, c.name
+            )
+            select customerName, cast(cast(lastVisit as date) as char(10)) as lastVisitDate,
+                   visitCount, totalAmount,
+                   6 - ntile(5) over (order by lastVisit desc, customerId) as recencyScore,
+                   6 - ntile(5) over (order by visitCount desc, customerId) as frequencyScore,
+                   6 - ntile(5) over (order by totalAmount desc, customerId) as monetaryScore
+            from customer_visits
+            order by lastVisit desc, customerId
+            """, nativeQuery = true)
+    List<RfmTotal> summarizeRfm(@Param("storeId") long storeId,
+                               @Param("start") LocalDateTime start,
+                               @Param("end") LocalDateTime end);
+
+    /**
+     * 고객 등급 표에 필요한 집계값만 받는다.
+     *
+     * 작성자 한상희
+     * 작성일 2026-11-10
+     */
+    interface RfmTotal {
+        /** 고객 이름을 반환한다. 작성자 한상희, 작성일 2026-11-10 */
+        String getCustomerName();
+
+        /** 기간 내 마지막 방문일을 반환한다. 작성자 한상희, 작성일 2026-11-10 */
+        String getLastVisitDate();
+
+        /** 기간 내 방문 건수를 반환한다. 작성자 한상희, 작성일 2026-11-10 */
+        long getVisitCount();
+
+        /** 기간 내 결제 합계를 반환한다. 작성자 한상희, 작성일 2026-11-10 */
+        long getTotalAmount();
+
+        /** 최근성 점수를 반환한다. 작성자 한상희, 작성일 2026-11-10 */
+        int getRecencyScore();
+
+        /** 방문 빈도 점수를 반환한다. 작성자 한상희, 작성일 2026-11-10 */
+        int getFrequencyScore();
+
+        /** 결제 금액 점수를 반환한다. 작성자 한상희, 작성일 2026-11-10 */
+        int getMonetaryScore();
+    }
 
     /**
      * 고객별 집계 쿼리에서 금액과 건수만 받는 결과 인터페이스이다.
