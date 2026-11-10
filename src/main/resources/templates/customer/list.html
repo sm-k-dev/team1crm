@@ -45,7 +45,7 @@
         </button>
     </form>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-<div><div class="saas-page-eyebrow">CUSTOMERS / DIRECTORY</div><h2 class="saas-page-title mb-0">고객 관리 <small class="text-muted fs-6" th:text="|${#lists.size(customers)}명|">0명</small></h2></div>
+<div><div class="saas-page-eyebrow">CUSTOMERS / DIRECTORY</div><h2 class="saas-page-title mb-0">고객 관리 <small class="text-muted fs-6" th:text="|${customerPage.totalElements}명|">0명</small></h2></div>
 <button class="btn btn-primary" data-bs-target="#addBox" data-bs-toggle="collapse" type="button"><i class="bi bi-person-plus"></i> 고객 등록</button>
 </div>
 <div class="collapse mb-3"
@@ -230,6 +230,55 @@
         </tr>
     </tbody>
 </table></div>
+    <!--
+    선택 매장과 검색어를 유지하며 고객 목록 페이지를 이동한다.
+    페이지 번호는 서버의 0 기준 값을 화면에서 1부터 표시한다.
+
+    작성자: 김순민
+    작성일: 2026-11-10
+-->
+    <div th:if="${customerPage.totalPages > 0}"
+         class="d-flex justify-content-between align-items-center mt-3">
+
+        <div>
+            <a th:if="${customerPage.hasPrevious()}"
+               class="btn btn-outline-secondary"
+               th:href="@{/customers(
+               storeId=${selectedStore.id},
+               keyword=${keyword},
+               page=${customerPage.number - 1})}">
+                이전
+            </a>
+
+            <span th:unless="${customerPage.hasPrevious()}"
+                  class="btn btn-outline-secondary disabled"
+                  aria-disabled="true">
+            이전
+        </span>
+        </div>
+
+        <span class="text-muted"
+              th:text="|${customerPage.number + 1} / ${customerPage.totalPages} 페이지|">
+        1 / 1 페이지
+    </span>
+
+        <div>
+            <a th:if="${customerPage.hasNext()}"
+               class="btn btn-outline-secondary"
+               th:href="@{/customers(
+               storeId=${selectedStore.id},
+               keyword=${keyword},
+               page=${customerPage.number + 1})}">
+                다음
+            </a>
+
+            <span th:unless="${customerPage.hasNext()}"
+                  class="btn btn-outline-secondary disabled"
+                  aria-disabled="true">
+            다음
+        </span>
+        </div>
+    </div>
 </main>
 <footer class="saas-footer">
 <div class="text-center">

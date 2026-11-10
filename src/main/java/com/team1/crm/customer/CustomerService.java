@@ -2,6 +2,9 @@ package com.team1.crm.customer;
 
 import com.team1.crm.auth.Store;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -207,5 +210,52 @@ public class CustomerService {
         }
 
         return customerRepository.searchCustomers(storeId, searchKeyword);
+    }
+
+    /**
+     * 지정한 매장의 고객을 검색하여 한 페이지에 10명씩 조회한다.
+     * 검색어가 없으면 해당 매장의 전체 고객을 페이지 단위로 조회한다.
+     * 호출 전에 로그인한 회원의 매장 접근 권한을 확인해야 한다.
+     *
+     * @param storeId 접근 권한을 확인한 매장의 ID
+     * @param keyword 이름 또는 전화번호 뒤 4자리 검색어
+     * @param page 조회할 페이지 번호. 첫 페이지는 0
+     * @return 고객 목록과 전체 건수·페이지 정보
+     * @throws IllegalArgumentException 매장 ID가 잘못된 경우
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    public Page<Customer> findCustomerPage(
+            Long storeId,
+            String keyword,
+            int page
+    ) {
+        if (storeId == null || storeId <= 0) {
+            throw new IllegalArgumentException("매장 정보를 확인해 주세요.");
+        }
+
+        int pageNumber = Math.max(page, 0);
+
+        PageRequest pageRequest = PageRequest.of(
+                pageNumber,
+                10,
+                Sort.by(Sort.Direction.ASC, "id")
+        );
+
+        String searchKeyword = keyword == null ? "" : keyword.strip();
+
+        if (searchKeyword.isEmpty()) {
+            return customerRepository.findAllByStore_Id(
+                    storeId,
+                    pageRequest
+            );
+        }
+
+        return customerRepository.searchCustomerPage(
+                storeId,
+                searchKeyword,
+                pageRequest
+        );
     }
 }

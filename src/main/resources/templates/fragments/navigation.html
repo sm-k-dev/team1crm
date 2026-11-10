@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+    로그인 회원의 역할에 따라 관리자와 사장님 메뉴를 구분하는 공통 내비게이션이다.
+    현재 사장님 역할은 USER이며 OWNER 전환 시에도 동일한 메뉴를 사용한다.
+
+    작성자: 김순민
+    작성일: 2026-11-10
+-->
+<nav th:fragment="navigation" aria-label="주 메뉴" class="saas-shell-nav"
+     th:with="isAdmin=${loginMember != null and loginMember.role != null and loginMember.role.name() == 'ADMIN'},
+              isOwner=${loginMember != null and loginMember.role != null and (loginMember.role.name() == 'USER' or loginMember.role.name() == 'OWNER')}">
+    <div class="saas-topbar">
+        <a class="saas-mobile-brand" href="/" th:href="${isAdmin} ? @{/admin/dashboard} : @{/}">
+            <i class="bi bi-grid-1x2-fill"></i> StoreCRM
+        </a>
+        <button aria-controls="saasSidebar" aria-expanded="false" aria-label="메뉴 열기"
+                class="saas-menu-toggle" type="button"><i class="bi bi-list"></i></button>
+        <span class="saas-topbar-label" th:text="${isAdmin} ? '플랫폼 관리자' : '매장 고객 관리 시스템'">매장 고객 관리 시스템</span>
+        <div class="saas-topbar-right">
+            <th:block th:if="${loginMember != null}">
+                <span class="saas-user"><i class="bi bi-person-circle"></i>
+                    <span th:text="${loginMember.nickname}">사용자</span>
+                </span>
+                <form th:action="@{/logout}" method="post" class="m-0">
+                    <button type="submit" class="saas-logout"
+                            style="border:0;background:none;cursor:pointer;">
+                        <i class="bi bi-box-arrow-right"></i> 로그아웃
+                    </button>
+                </form>
+            </th:block>
+            <a th:if="${loginMember == null}" class="saas-logout" href="/login" th:href="@{/login}">로그인</a>
+        </div>
+    </div>
+    <aside class="saas-sidebar" id="saasSidebar">
+        <a class="saas-brand" href="/" th:href="${isAdmin} ? @{/admin/dashboard} : @{/}">
+            <span class="saas-brand-icon"><i class="bi bi-bar-chart-steps"></i></span>
+            <span><strong>StoreCRM</strong><small>매장 고객 관리 시스템</small></span>
+        </a>
+
+        <th:block th:if="${isAdmin}">
+            <div class="saas-nav-section">ADMIN</div>
+            <a class="saas-side-link" data-route="/admin/dashboard" th:href="@{/admin/dashboard}"><i class="bi bi-speedometer2"></i> 사장님/매장 현황</a>
+            <a class="saas-side-link" data-route="/admin/stores" th:href="@{/admin/stores}"><i class="bi bi-shop"></i> 매장 관리</a>
+            <a class="saas-side-link" data-route="/admin/owners" th:href="@{/admin/owners}"><i class="bi bi-person-badge"></i> 사장님 계정 관리</a>
+        </th:block>
+
+        <th:block th:if="${isOwner}">
+            <div class="saas-nav-section">WORKSPACE</div>
+            <a class="saas-side-link" data-route="/" th:href="@{/}"><i class="bi bi-grid-1x2"></i> 매장 운영 현황</a>
+            <a class="saas-side-link" data-route="/store-settings" th:href="@{/store-settings}"><i class="bi bi-gear"></i> 내 매장 정보</a>
+            <div class="saas-nav-section">CUSTOMERS</div>
+            <a class="saas-side-link" data-route="/customers" th:href="@{/customers}"><i class="bi bi-people"></i> 고객 관리</a>
+            <div class="saas-nav-section">INSIGHTS</div>
+            <a class="saas-side-link" data-route="/analytics/dashboard" th:href="@{/analytics/dashboard}"><i class="bi bi-graph-up-arrow"></i> 분석 · RFM · AI</a>
+        </th:block>
+
+        <th:block th:if="${loginMember == null}">
+            <div class="saas-nav-section">ACCOUNT</div>
+            <a class="saas-side-link" data-route="/login" th:href="@{/login}"><i class="bi bi-box-arrow-in-right"></i> 로그인</a>
+            <a class="saas-side-link" data-route="/signup" th:href="@{/signup}"><i class="bi bi-person-plus"></i> 회원가입</a>
+        </th:block>
+        <div class="saas-sidebar-bottom">StoreCRM</div>
+    </aside>
+    <div aria-hidden="true" class="saas-overlay"></div>
+</nav>
+</body>
+</html>

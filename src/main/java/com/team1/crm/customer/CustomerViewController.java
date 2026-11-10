@@ -6,6 +6,7 @@ import com.team1.crm.auth.StoreService;
 import com.team1.crm.auth.security.LoginMember;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.context.annotation.Profile;
@@ -42,6 +43,7 @@ public class CustomerViewController {
      * @param model 화면에 전달할 데이터
      * @param keyword 이름 또는 전화번호 뒤 4자리 검색어. 생략 가능
      * @param redirectAttributes 첫 매장으로 이동할 때 유지할 주소 매개변수
+     * @param page 조회할 페이지 번호. 첫 페이지는 0
      * @return 고객 목록 화면 또는 첫 소유 매장의 고객 목록 주소
      *
      * 작성자: 김순민
@@ -50,12 +52,14 @@ public class CustomerViewController {
      * 변경노트 2026-11-10 김순민: 로그인 회원과 매장 선택·소유권 확인 연결
      * 변경노트 2026-11-10 김순민: 매장별 고객 검색 연결
      * 변경노트 2026-11-10 김순민: 매장별 이름·전화번호 뒤 4자리 검색 연결
+     * 변경노트 2026-11-10 김순민: 고객 검색 결과의 페이지 조회 연결
      */
     @GetMapping("/customers")
     public String list(
             @LoginMember Member member,
             @RequestParam(name = "storeId", required = false) Long storeId,
             @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "page", defaultValue = "0") int page,
             Model model,
             RedirectAttributes redirectAttributes
     ) {
@@ -82,6 +86,8 @@ public class CustomerViewController {
                 redirectAttributes.addAttribute("keyword", keyword.strip());
             }
 
+            redirectAttributes.addAttribute("page", Math.max(page, 0));
+
             return "redirect:/customers";
         }
 
@@ -101,10 +107,30 @@ public class CustomerViewController {
 
         model.addAttribute("stores", stores);
         model.addAttribute("selectedStore", selectedStore);
-        model.addAttribute(
-                "customers",
-                customerService.searchCustomers(selectedStore.getId(), keyword)
+        Page<Customer> customerPage = customerService.findCustomerPage(
+                selectedStore.getId(),
+                keyword,
+                page
         );
+
+        // 실제 마지막 페이지를 넘어선 요청은 마지막 페이지로 이동한다.
+        if (customerPage.getTotalPages() > 0
+                && customerPage.getNumber() >= customerPage.getTotalPages()) {
+            redirectAttributes.addAttribute("storeId", selectedStore.getId());
+            redirectAttributes.addAttribute(
+                    "keyword",
+                    keyword == null ? "" : keyword.strip()
+            );
+            redirectAttributes.addAttribute(
+                    "page",
+                    customerPage.getTotalPages() - 1
+            );
+
+            return "redirect:/customers";
+        }
+
+        model.addAttribute("customerPage", customerPage);
+        model.addAttribute("customers", customerPage.getContent());
         model.addAttribute(
                 "keyword",
                 keyword == null ? "" : keyword.strip()
@@ -174,10 +200,15 @@ public class CustomerViewController {
                 storeService.getMyStores(member.getEmail())
         );
         model.addAttribute("selectedStore", selectedStore);
-        model.addAttribute(
-                "customers",
-                customerService.findCustomers(selectedStore.getId())
+        Page<Customer> customerPage = customerService.findCustomerPage(
+                selectedStore.getId(),
+                "",
+                0
         );
+
+        model.addAttribute("customerPage", customerPage);
+        model.addAttribute("customers", customerPage.getContent());
+        model.addAttribute("keyword", "");
         model.addAttribute("showRegistration", true);
 
         return "customer/list";

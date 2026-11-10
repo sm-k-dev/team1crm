@@ -1,5 +1,7 @@
 package com.team1.crm.customer;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -97,5 +99,43 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     List<Customer> searchCustomers(
             @Param("storeId") Long storeId,
             @Param("keyword") String keyword
+    );
+
+    /**
+     * 지정한 매장의 고객을 페이지 단위로 조회한다.
+     *
+     * @param storeId 조회할 매장의 ID
+     * @param pageable 페이지 번호·크기·정렬 조건
+     * @return 해당 페이지의 고객과 전체 건수 정보
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    Page<Customer> findAllByStore_Id(Long storeId, Pageable pageable);
+
+    /**
+     * 지정한 매장에서 이름 또는 전화번호 뒤 4자리로 검색하고 결과를 페이지로 반환한다.
+     *
+     * @param storeId 검색할 매장의 ID
+     * @param keyword 앞뒤 공백을 제거한 검색어
+     * @param pageable 페이지 번호·크기·정렬 조건
+     * @return 검색 결과 페이지와 전체 검색 건수 정보
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Query("""
+        select c
+        from Customer c
+        where c.store.id = :storeId
+          and (
+              locate(:keyword, c.name) > 0
+              or substring(c.phone, length(c.phone) - 3, 4) = :keyword
+          )
+        """)
+    Page<Customer> searchCustomerPage(
+            @Param("storeId") Long storeId,
+            @Param("keyword") String keyword,
+            Pageable pageable
     );
 }
