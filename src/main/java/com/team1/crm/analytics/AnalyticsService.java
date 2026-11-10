@@ -5,6 +5,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 
 /**
@@ -14,6 +16,7 @@ import java.util.List;
  * 작성일 2026-11-05
  * 변경노트 2026-11-06 한상희: 매장별 월간 지표 계산과 요일별 차트 데이터 생성 추가.
  * 변경노트 2026-11-09 한상희: 시간대별 방문과 6개월 추이 데이터 추가.
+ * 변경노트 2026-11-10 한상희: 고객별 RFM 등급과 등급별 인원 집계 추가.
  */
 @Service
 public class AnalyticsService {
@@ -75,6 +78,79 @@ public class AnalyticsService {
         return new Summary(revenue, visits, customers.size(), repeatCustomers, weekdayVisits,
                 hourlyVisits, monthlyTrend(storeId, month));
     }
+
+    /**
+     * 선택 월에 방문한 고객의 RFM 등급과 등급별 인원수를 계산한다.
+     * 호출부에서 매장 소유권을 확인한 뒤 호출한다.
+     *
+     * 작성자 한상희
+     * 작성일 2026-11-10
+     *
+     * @param storeId 소유권이 확인된 매장 ID
+     * @param month 조회할 연도와 월
+     * @return 고객별 등급 표와 등급별 인원
+     */
+    @Transactional(readOnly = true)
+    public RfmReport summarizeRfm(long storeId, YearMonth month) {
+        var totals = repository.summarizeRfm(storeId, month.atDay(1).atStartOfDay(),
+                month.plusMonths(1).atDay(1).atStartOfDay());
+        var rows = new ArrayList<RfmRow>(totals.size());
+        var counts = new EnumMap<Grade, Integer>(Grade.class);
+        for (var total : totals) {
+            int r = total.getRecencyScore();
+            int f = total.getFrequencyScore();
+            int m = total.getMonetaryScore();
+            Grade grade = gradeFor(r, f, m);
+            rows.add(new RfmRow(total.getCustomerName(), total.getLastVisitDate(),
+                    total.getVisitCount(), total.getTotalAmount(), r, f, m, grade.label));
+            counts.merge(grade, 1, Integer::sum);
+        }
+
+        var gradeCounts = new ArrayList<GradeCount>(Grade.values().length);
+        for (var grade : Grade.values()) {
+            gradeCounts.add(new GradeCount(grade.label, counts.getOrDefault(grade, 0)));
+        }
+        return new RfmReport(List.copyOf(rows), List.copyOf(gradeCounts));
+    }
+
+    /**
+     * 참조 구현의 우선순위에 따라 RFM 점수 세 개를 등급 하나로 바꾼다.
+     *
+     * 작성자 한상희
+     * 작성일 2026-11-10
+     */
+    private Grade gradeFor(int r, int f, int m) {
+        if (r <= 2 && f <= 3) {
+            return Grade.AT_RISK;
+        }
+        int total = r + f + m;
+        if (total >= 13) {
+            return Grade.VIP;
+        }
+        return total >= 10 ? Grade.REGULAR : Grade.GENERAL;
+    }
+
+    /** RFM 등급의 화면 이름과 표시 순서를 정의한다. 작성자 한상희, 작성일 2026-11-10 */
+    private enum Grade {
+        VIP("VIP"), REGULAR("단골"), GENERAL("일반"), AT_RISK("이탈 위험");
+
+        private final String label;
+
+        /** 등급 이름을 보관한다. 작성자 한상희, 작성일 2026-11-10 */
+        Grade(String label) {
+            this.label = label;
+        }
+    }
+
+    /** 고객별 RFM 표와 차트에 사용할 집계 결과이다. 작성자 한상희, 작성일 2026-11-10 */
+    public record RfmReport(List<RfmRow> rows, List<GradeCount> gradeCounts) {}
+
+    /** 한 고객의 방문·결제 지표, RFM 점수, 등급이다. 작성자 한상희, 작성일 2026-11-10 */
+    public record RfmRow(String customerName, String lastVisitDate, long visits, long totalAmount,
+                         int r, int f, int m, String grade) {}
+
+    /** 한 등급의 이름과 고객 수이다. 작성자 한상희, 작성일 2026-11-10 */
+    public record GradeCount(String label, int count) {}
 
     /**
      * 선택 월을 포함한 6개월의 매출과 방문 고객 수를 오래된 월부터 정리한다.

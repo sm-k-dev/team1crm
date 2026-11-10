@@ -2,7 +2,6 @@
 -- Run manually in MySQL Workbench / IntelliJ SQL console; never on production.
 -- Fixed 900xxx IDs + INSERT IGNORE make repeated runs safe for unchanged schema.
 -- Passwords are BCrypt hashes of test password "password"; use only for local dummy accounts.
-SET NAMES utf8mb4;
 USE crm;
 START TRANSACTION;
 
@@ -206,3 +205,15 @@ INSERT IGNORE INTO `image` (`id`, `original_file_name`, `stored_file_name`, `fil
 
 COMMIT;
 -- NOTE: Image rows contain metadata only; no actual image files are created.
+<<<<<<< HEAD
+
+SELECT COUNT(*) FROM member;
+SELECT COUNT(*) FROM store;
+SELECT COUNT(*) FROM customer;
+SELECT COUNT(*) FROM visit;
+SELECT COUNT(*) FROM point_history;
+SELECT COUNT(*) FROM coupon;
+SELECT COUNT(*) FROM image;
+
+=======
+>>>>>>> a349e0b3c840cf3109d8f5b1481fb5735566a5fe
