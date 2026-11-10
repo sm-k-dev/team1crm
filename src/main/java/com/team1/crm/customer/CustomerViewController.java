@@ -1,48 +1,167 @@
 package com.team1.crm.customer;
 
+import com.team1.crm.auth.Member;
+import com.team1.crm.auth.Store;
+import com.team1.crm.auth.StoreService;
+import com.team1.crm.auth.security.LoginMember;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 /**
- * 개발 환경에서 고객 목록을 조회하고 고객 관리 화면에 전달하는 Controller이다.
- * 인증 연동 전까지 개발용 고정 매장의 고객을 표시한다.
+ * 로그인한 회원의 소유 매장과 고객 목록을 화면에 전달하는 Controller이다.
+ * 승인·정지 상태 정책 연동 전까지 개발 환경에서 사용한다.
  *
  * 작성자: 김순민
  * 작성일: 2026-11-06
+ * 변경노트 2026-11-10 김순민: 고정 매장 조회를 로그인 회원의 소유 매장 조회로 변경
  */
 @Controller
 @Profile("dev")
 @RequiredArgsConstructor
 public class CustomerViewController {
 
-    // 인증 연동 전 화면 연결 확인에 사용하는 개발용 매장 ID
-    private static final Long PREVIEW_STORE_ID = 900101L;
-
     private final CustomerService customerService;
+    private final StoreService storeService;
 
     /**
-     * 개발용 매장의 고객 목록과 빈 고객 등록 Form을 화면에 전달한다.
-     * 현재 로그인 사용자에 대한 매장 소유권 검증은 수행하지 않는다.
+     * 로그인한 회원이 선택한 매장의 고객 목록과 등록 Form을 표시한다.
+     * 매장을 지정하지 않으면 소유 매장 목록의 첫 번째 매장으로 이동한다.
      *
-     * @param model 화면에 전달할 데이터를 담는 객체
-     * @return 고객 목록 Thymeleaf 템플릿 이름
+     * @param member 로그인한 회원
+     * @param storeId 선택한 매장의 ID. 생략 가능
+     * @param model 화면에 전달할 데이터
+     * @return 고객 목록 화면 또는 첫 소유 매장의 고객 목록 주소
      *
      * 작성자: 김순민
      * 작성일: 2026-11-06
      * 변경노트 2026-11-09 김순민: 고객 등록용 Form 전달 추가
+     * 변경노트 2026-11-10 김순민: 로그인 회원과 매장 선택·소유권 확인 연결
      */
     @GetMapping("/customers")
-    public String list(Model model) {
+    public String list(
+            @LoginMember Member member,
+            @RequestParam(name = "storeId", required = false) Long storeId,
+            Model model
+    ) {
+        if (member == null) {
+            return "redirect:/login";
+        }
+
+        List<Store> stores = storeService.getMyStores(member.getEmail());
+
+        if (stores.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "고객을 관리하려면 먼저 매장을 등록해 주세요."
+            );
+        }
+
+        if (storeId == null) {
+            return "redirect:/customers?storeId=" + stores.get(0).getId();
+        }
+
+        Store selectedStore;
+
+        try {
+            selectedStore = storeService.findOwnedStore(
+                    member.getId(),
+                    storeId
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "접근 가능한 매장이 아닙니다."
+            );
+        }
+
+        model.addAttribute("stores", stores);
+        model.addAttribute("selectedStore", selectedStore);
         model.addAttribute(
                 "customers",
-                customerService.findCustomers(PREVIEW_STORE_ID)
+                customerService.findCustomers(selectedStore.getId())
         );
-
-        // 고객 등록 입력칸과 연결할 빈 Form 객체를 화면에 전달한다.
         model.addAttribute("customerForm", new CustomerForm());
+
+        return "customer/list";
+    }
+
+    /**
+     * 로그인한 회원의 소유 매장에 고객을 등록한다.
+     * 입력 오류가 있으면 입력값과 오류를 유지하여 목록 화면을 다시 표시한다.
+     *
+     * @param member 로그인한 회원
+     * @param storeId 고객을 등록할 매장의 ID
+     * @param form 고객 등록 입력값
+     * @param bindingResult 입력값 변환 및 검증 결과
+     * @param model 화면에 전달할 데이터
+     * @return 오류 시 고객 목록 화면, 성공 시 선택 매장의 고객 목록 주소
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @PostMapping("/customers")
+    public String register(
+            @LoginMember Member member,
+            @RequestParam(name = "storeId") Long storeId,
+            @Valid @ModelAttribute("customerForm") CustomerForm form,
+            BindingResult bindingResult,
+            Model model
+    ) {
+        if (member == null) {
+            return "redirect:/login";
+        }
+
+        Store selectedStore;
+
+        try {
+            selectedStore = storeService.findOwnedStore(
+                    member.getId(),
+                    storeId
+            );
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "접근 가능한 매장이 아닙니다."
+            );
+        }
+
+        if (!bindingResult.hasErrors()) {
+            try {
+                customerService.registerCustomer(selectedStore, form);
+
+                return "redirect:/customers?storeId="
+                        + selectedStore.getId();
+            } catch (IllegalArgumentException exception) {
+                bindingResult.rejectValue(
+                        "phone",
+                        "customer.phone.invalid",
+                        exception.getMessage()
+                );
+            }
+        }
+
+        model.addAttribute(
+                "stores",
+                storeService.getMyStores(member.getEmail())
+        );
+        model.addAttribute("selectedStore", selectedStore);
+        model.addAttribute(
+                "customers",
+                customerService.findCustomers(selectedStore.getId())
+        );
+        model.addAttribute("showRegistration", true);
 
         return "customer/list";
     }

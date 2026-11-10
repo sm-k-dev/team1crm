@@ -64,4 +64,34 @@ public class StoreService {
 
         return storeRepository.findByOwnerId(member.getId());
     }
+
+    /**
+     * 로그인한 회원이 소유한 매장을 조회한다.
+     * 계정·매장 승인 및 정지 상태 검증은 상태 모델 구현 후 추가해야 한다.
+     *
+     * @param memberId 인증 정보에서 확인한 로그인 회원의 ID
+     * @param storeId 조회할 매장의 ID
+     * @return 로그인 회원이 소유한 매장
+     * @throws IllegalArgumentException ID가 잘못되었거나 소유 매장을 찾을 수 없는 경우
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Transactional(readOnly = true)
+    public Store findOwnedStore(Long memberId, Long storeId) {
+        if (memberId == null || memberId <= 0) {
+            throw new IllegalArgumentException("회원 정보를 확인해 주세요.");
+        }
+
+        if (storeId == null || storeId <= 0) {
+            throw new IllegalArgumentException("매장 정보를 확인해 주세요.");
+        }
+
+        return storeRepository.findByIdAndOwner_Id(storeId, memberId)
+                .orElseThrow(
+                        () -> new IllegalArgumentException(
+                                "접근 가능한 매장을 찾을 수 없습니다."
+                        )
+                );
+    }
 }
