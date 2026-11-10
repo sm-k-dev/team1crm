@@ -70,6 +70,9 @@ dependencies {
     // ↑ 보안 프레임워크: 인증(Authentication)과 인가(Authorization) 처리
     //   BCrypt 비밀번호 암호화, CSRF 방어, 세션 관리 등
 
+    // Thymeleaf에서 로그인 여부와 권한을 확인하는 기능
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+
     // ══════════════════════════════════════════════════════════
     // ── [Phase 4] JWT (JSON Web Token) 인증 ──
     // ══════════════════════════════════════════════════════════

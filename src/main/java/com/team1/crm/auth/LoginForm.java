@@ -1,10 +1,26 @@
 package com.team1.crm.auth;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
+
 /**
- * Team implementation placeholder.
- * Original implementation is preserved in the separate Reference Bundle.
- * Define responsibilities and contracts with your team before coding.
+ *
+ * + 로그인 입력 폼
+ * 역할: 로그인 입력 양식과 메시지 띄우기
+ * 작성자: 황현우
+ * 일시:2026-11-05
  */
-public class LoginForm {
-    // TODO: implement as assigned by team.
+
+@Getter
+@Setter
+public class LoginForm { //http://localhost:8082/
+
+    @NotBlank(message = "이메일은 필수 입력 값입니다.")
+    @Email(message = "올바른 이메일 형식여야 합니다.")
+    private String email;
+
+    @NotBlank(message = "비밀번호는 필수 입력 값입니다.")
+    private  String password;
 }
