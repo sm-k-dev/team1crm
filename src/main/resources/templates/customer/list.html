@@ -11,61 +11,62 @@
 <link rel="stylesheet" href="/css/modern-saas.css" th:href="@{/css/modern-saas.css}"/>
 </head>
 <body>
-<nav aria-label="주 메뉴" class="saas-shell-nav">
-<div class="saas-topbar">
-<a class="saas-mobile-brand" href="/" th:href="@{/}"><i class="bi bi-grid-1x2-fill"></i> StoreCRM</a>
-<button aria-controls="saasSidebar" aria-expanded="false" aria-label="메뉴 열기" class="saas-menu-toggle" type="button"><i class="bi bi-list"></i></button>
-<span class="saas-topbar-label">매장 고객 관리 시스템</span>
-<div class="saas-topbar-right">
-<span class="saas-user"><i class="bi bi-person-circle"></i> <span>사용자</span></span>
-<a class="saas-logout" href="/login" th:href="@{/login}"><i class="bi bi-box-arrow-right"></i> 로그아웃</a>
-<a class="saas-logout" href="/login" th:href="@{/login}">로그인</a>
-</div>
-</div>
-<aside class="saas-sidebar" id="saasSidebar">
-<a class="saas-brand" href="/" th:href="@{/}"><span class="saas-brand-icon"><i class="bi bi-bar-chart-steps"></i></span><span><strong>StoreCRM</strong><small>매장 고객 관리 시스템</small></span></a>
-
-<div class="saas-nav-section">ADMIN</div>
-<a class="saas-side-link" data-route="/admin/dashboard" href="/admin/dashboard" th:href="@{/admin/dashboard}"><i class="bi bi-speedometer2"></i> 사장님/매장 현황</a>
-<a class="saas-side-link" data-route="/admin/stores" href="/admin/stores" th:href="@{/admin/stores}"><i class="bi bi-shop"></i> 매장 관리</a>
-<a class="saas-side-link" data-route="/admin/owners" href="/admin/owners" th:href="@{/admin/owners}"><i class="bi bi-person-badge"></i> 사장님 계정 관리</a>
-
-
-<div class="saas-nav-section">WORKSPACE</div>
-<a class="saas-side-link" data-route="/" href="/" th:href="@{/}"><i class="bi bi-grid-1x2"></i> 매장 운영 현황</a>
-<a class="saas-side-link" data-route="unavailable" href="#" aria-disabled="true" title="매장 설정: 기능 구현 후 연결" onclick="return false;"><i class="bi bi-gear"></i> 내 매장 정보</a>
-<div class="saas-nav-section">CUSTOMERS</div>
-<a class="saas-side-link" data-route="/customers" href="/customers" th:href="@{/customers}"><i class="bi bi-people"></i> 고객 관리</a>
-<div class="saas-nav-section">INSIGHTS</div>
-<a class="saas-side-link" data-route="/analytics/dashboard" href="/analytics/dashboard" th:href="@{/analytics/dashboard}"><i class="bi bi-graph-up-arrow"></i> 분석 · RFM · AI</a>
-
-
-<div class="saas-nav-section">ACCOUNT</div>
-<a class="saas-side-link" data-route="/login" href="/login" th:href="@{/login}"><i class="bi bi-box-arrow-in-right"></i> 로그인</a>
-<a class="saas-side-link" data-route="/signup" href="/signup" th:href="@{/signup}"><i class="bi bi-person-plus"></i> 회원가입</a>
-
-<div class="saas-sidebar-bottom">Thymeleaf UI Preview<br/>Modern SaaS UI</div>
-</aside>
-<div aria-hidden="true" class="saas-overlay"></div>
-</nav>
+<nav th:replace="~{fragments/navigation :: navigation}"></nav>
 <main class="container mb-5">
+    <!--
+        로그인한 회원의 소유 매장 중 고객을 관리할 매장을 선택한다.
+
+        작성자: 김순민
+        작성일: 2026-11-10
+    -->
+    <form th:action="@{/customers}"
+          method="get"
+          class="d-flex align-items-center gap-2 mb-3">
+
+        <label for="storeId" class="form-label mb-0">
+            관리할 매장
+        </label>
+
+        <select id="storeId"
+                name="storeId"
+                class="form-select"
+                style="max-width: 280px;">
+
+            <option th:each="store : ${stores}"
+                    th:value="${store.id}"
+                    th:text="${store.name}"
+                    th:selected="${store.id == selectedStore.id}">
+                매장 이름
+            </option>
+        </select>
+
+        <button type="submit" class="btn btn-outline-primary">
+            조회
+        </button>
+    </form>
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
 <div><div class="saas-page-eyebrow">CUSTOMERS / DIRECTORY</div><h2 class="saas-page-title mb-0">고객 관리 <small class="text-muted fs-6" th:text="|${#lists.size(customers)}명|">0명</small></h2></div>
 <button class="btn btn-primary" data-bs-target="#addBox" data-bs-toggle="collapse" type="button"><i class="bi bi-person-plus"></i> 고객 등록</button>
 </div>
-<div class="collapse mb-3" id="addBox"><div class="card card-body">
-<div class="alert alert-danger d-none" id="addMsg"></div>
-    <!--
-        고객 등록 입력칸을 CustomerForm의 필드와 연결한다.
-        저장 요청 연결 전까지 제출은 비활성화한다.
+<div class="collapse mb-3"
+     id="addBox"
+     th:classappend="${showRegistration == true} ? 'show' : ''">
 
-        작성자: 김순민
-        작성일: 2026-11-09
-    -->
+    <div class="card card-body">
+        <div class="alert alert-danger d-none" id="addMsg"></div>
+        <!--
+            고객 등록 입력값을 선택한 매장의 등록 처리로 제출한다.
+            검증 오류가 발생하면 기존 입력값과 오류 메시지를 표시한다.
+
+            작성자: 김순민
+            작성일: 2026-11-09
+            변경노트 2026-11-10 김순민: 고객 등록 POST 요청 연결
+        -->
     <form class="row g-2"
           id="addForm"
           th:object="${customerForm}"
-          onsubmit="return false;">
+          th:action="@{/customers(storeId=${selectedStore.id})}"
+          method="post">
 
         <div class="col-md-3">
             <input class="form-control"
@@ -126,10 +127,8 @@
         </div>
 
         <div class="col-12">
-            <button class="btn btn-primary btn-sm"
-                    type="button"
-                    disabled>
-                저장 — 연결 준비 중
+            <button class="btn btn-primary btn-sm" type="submit">
+                저장
             </button>
         </div>
     </form>
