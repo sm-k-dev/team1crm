@@ -2,6 +2,9 @@ package com.team1.crm.customer;
 
 import com.team1.crm.auth.Store;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -111,5 +114,148 @@ public class CustomerService {
         Customer savedCustomer = customerRepository.save(customer);
 
         return savedCustomer.getId();
+    }
+
+    /**
+     * 지정한 매장에 속한 고객 한 명을 조회한다.
+     * 호출 전에 로그인한 회원의 매장 접근 권한을 확인해야 한다.
+     *
+     * @param storeId 접근 권한을 확인한 매장의 ID
+     * @param customerId 조회할 고객의 ID
+     * @return 해당 매장에 속한 고객
+     * @throws IllegalArgumentException ID가 잘못되었거나 해당 매장의 고객이 아닌 경우
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    public Customer findCustomer(Long storeId, Long customerId) {
+        if (storeId == null || storeId <= 0) {
+            throw new IllegalArgumentException("매장 정보를 확인해 주세요.");
+        }
+
+        if (customerId == null || customerId <= 0) {
+            throw new IllegalArgumentException("고객 정보를 확인해 주세요.");
+        }
+
+        return customerRepository.findByIdAndStore_Id(customerId, storeId)
+                .orElseThrow(
+                        () -> new IllegalArgumentException(
+                                "해당 매장의 고객을 찾을 수 없습니다."
+                        )
+                );
+    }
+
+    /**
+     * 지정한 매장에 속한 고객 정보를 수정한다.
+     * 전화번호를 정규화하고 자신을 제외한 매장 내 번호 중복을 검사한다.
+     * 호출 전에 Form 검증과 로그인 회원의 매장 접근 권한 확인을 완료해야 한다.
+     *
+     * @param storeId 접근 권한을 확인한 매장의 ID
+     * @param customerId 수정할 고객의 ID
+     * @param form 검증을 마친 고객 입력값
+     * @throws IllegalArgumentException 고객을 찾을 수 없거나 전화번호가 잘못되었거나 중복인 경우
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Transactional
+    public void updateCustomer(
+            Long storeId,
+            Long customerId,
+            CustomerForm form
+    ) {
+        Customer customer = findCustomer(storeId, customerId);
+
+        String phone = normalizePhone(form.getPhone());
+
+        if (customerRepository.existsByStore_IdAndPhoneAndIdNot(
+                storeId,
+                phone,
+                customerId
+        )) {
+            throw new IllegalArgumentException("이미 등록된 고객입니다.");
+        }
+
+        customer.update(
+                form.getName(),
+                phone,
+                form.getBirthMonth(),
+                form.getMemo(),
+                form.isAgreeMarketing()
+        );
+    }
+
+    /**
+     * 지정한 매장의 고객을 이름 또는 전화번호 뒤 4자리로 검색한다.
+     * 검색어가 없거나 공백뿐이면 해당 매장의 전체 고객을 조회한다.
+     * 호출 전에 로그인한 회원의 매장 접근 권한을 확인해야 한다.
+     *
+     * @param storeId 접근 권한을 확인한 매장의 ID
+     * @param keyword 검색어
+     * @return 검색 결과 또는 해당 매장의 전체 고객 목록
+     * @throws IllegalArgumentException 매장 ID가 잘못된 경우
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    public List<Customer> searchCustomers(Long storeId, String keyword) {
+        if (storeId == null || storeId <= 0) {
+            throw new IllegalArgumentException("매장 정보를 확인해 주세요.");
+        }
+
+        String searchKeyword = keyword == null ? "" : keyword.strip();
+
+        if (searchKeyword.isEmpty()) {
+            return findCustomers(storeId);
+        }
+
+        return customerRepository.searchCustomers(storeId, searchKeyword);
+    }
+
+    /**
+     * 지정한 매장의 고객을 검색하여 한 페이지에 10명씩 조회한다.
+     * 검색어가 없으면 해당 매장의 전체 고객을 페이지 단위로 조회한다.
+     * 호출 전에 로그인한 회원의 매장 접근 권한을 확인해야 한다.
+     *
+     * @param storeId 접근 권한을 확인한 매장의 ID
+     * @param keyword 이름 또는 전화번호 뒤 4자리 검색어
+     * @param page 조회할 페이지 번호. 첫 페이지는 0
+     * @return 고객 목록과 전체 건수·페이지 정보
+     * @throws IllegalArgumentException 매장 ID가 잘못된 경우
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    public Page<Customer> findCustomerPage(
+            Long storeId,
+            String keyword,
+            int page
+    ) {
+        if (storeId == null || storeId <= 0) {
+            throw new IllegalArgumentException("매장 정보를 확인해 주세요.");
+        }
+
+        int pageNumber = Math.max(page, 0);
+
+        PageRequest pageRequest = PageRequest.of(
+                pageNumber,
+                10,
+                Sort.by(Sort.Direction.ASC, "id")
+        );
+
+        String searchKeyword = keyword == null ? "" : keyword.strip();
+
+        if (searchKeyword.isEmpty()) {
+            return customerRepository.findAllByStore_Id(
+                    storeId,
+                    pageRequest
+            );
+        }
+
+        return customerRepository.searchCustomerPage(
+                storeId,
+                searchKeyword,
+                pageRequest
+        );
     }
 }

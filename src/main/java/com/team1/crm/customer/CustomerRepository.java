@@ -1,8 +1,13 @@
 package com.team1.crm.customer;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 고객 정보를 DB에 저장하고 조회하는 Repository 인터페이스이다.
@@ -40,4 +45,97 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      * 작성일: 2026-11-09
      */
     boolean existsByStore_IdAndPhone(Long storeId, String phone);
+
+    /**
+     * 고객 ID와 소속 매장 ID가 모두 일치하는 고객을 조회한다.
+     *
+     * @param customerId 조회할 고객의 ID
+     * @param storeId 고객이 속해야 하는 매장의 ID
+     * @return 조건에 맞는 고객. 일치하는 고객이 없으면 빈 Optional
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    Optional<Customer> findByIdAndStore_Id(Long customerId, Long storeId);
+
+    /**
+     * 수정할 고객을 제외하고 같은 매장에 같은 전화번호가 있는지 확인한다.
+     *
+     * @param storeId 중복 여부를 확인할 매장의 ID
+     * @param phone 형식이 통일된 전화번호
+     * @param customerId 중복 검사에서 제외할 고객의 ID
+     * @return 다른 고객이 같은 번호를 사용하고 있으면 true
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    boolean existsByStore_IdAndPhoneAndIdNot(
+            Long storeId,
+            String phone,
+            Long customerId
+    );
+
+    /**
+     * 지정한 매장에서 이름에 검색어가 포함되거나 전화번호 뒤 4자리가 일치하는 고객을 조회한다.
+     * 결과는 고객 ID 오름차순으로 정렬한다.
+     *
+     * @param storeId 검색할 매장의 ID
+     * @param keyword 앞뒤 공백을 제거한 검색어
+     * @return 조건에 맞는 해당 매장의 고객 목록
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Query("""
+        select c
+        from Customer c
+        where c.store.id = :storeId
+          and (
+              locate(:keyword, c.name) > 0
+              or substring(c.phone, length(c.phone) - 3, 4) = :keyword
+          )
+        order by c.id asc
+        """)
+    List<Customer> searchCustomers(
+            @Param("storeId") Long storeId,
+            @Param("keyword") String keyword
+    );
+
+    /**
+     * 지정한 매장의 고객을 페이지 단위로 조회한다.
+     *
+     * @param storeId 조회할 매장의 ID
+     * @param pageable 페이지 번호·크기·정렬 조건
+     * @return 해당 페이지의 고객과 전체 건수 정보
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    Page<Customer> findAllByStore_Id(Long storeId, Pageable pageable);
+
+    /**
+     * 지정한 매장에서 이름 또는 전화번호 뒤 4자리로 검색하고 결과를 페이지로 반환한다.
+     *
+     * @param storeId 검색할 매장의 ID
+     * @param keyword 앞뒤 공백을 제거한 검색어
+     * @param pageable 페이지 번호·크기·정렬 조건
+     * @return 검색 결과 페이지와 전체 검색 건수 정보
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-10
+     */
+    @Query("""
+        select c
+        from Customer c
+        where c.store.id = :storeId
+          and (
+              locate(:keyword, c.name) > 0
+              or substring(c.phone, length(c.phone) - 3, 4) = :keyword
+          )
+        """)
+    Page<Customer> searchCustomerPage(
+            @Param("storeId") Long storeId,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
 }
