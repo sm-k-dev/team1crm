@@ -50,21 +50,89 @@
 </nav>
 <main class="container mb-5">
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-<div><div class="saas-page-eyebrow">CUSTOMERS / DIRECTORY</div><h2 class="saas-page-title mb-0">고객 관리 <small class="text-muted fs-6">0명</small></h2></div>
+<div><div class="saas-page-eyebrow">CUSTOMERS / DIRECTORY</div><h2 class="saas-page-title mb-0">고객 관리 <small class="text-muted fs-6" th:text="|${#lists.size(customers)}명|">0명</small></h2></div>
 <button class="btn btn-primary" data-bs-target="#addBox" data-bs-toggle="collapse" type="button"><i class="bi bi-person-plus"></i> 고객 등록</button>
 </div>
 <div class="collapse mb-3" id="addBox"><div class="card card-body">
 <div class="alert alert-danger d-none" id="addMsg"></div>
-<form class="row g-2" data-demo-only="true" id="addForm" onsubmit="return false;">
-<div class="col-md-3"><input class="form-control" id="cName" maxlength="30" placeholder="이름 *" required=""/></div>
-<div class="col-md-3"><input class="form-control" id="cPhone" placeholder="010-1234-5678 *" required=""/></div>
-<div class="col-md-2"><select class="form-select" id="cBirth"><option value="">생일 월</option>
-<!--/* 1~12 선택지를 #numbers.sequence 로 만든다 */-->
-<option>1월</option></select></div>
-<div class="col-md-4"><input class="form-control" id="cMemo" maxlength="300" placeholder="메모"/></div>
-<div class="col-12 form-check ms-2"><input class="form-check-input" id="cAgree" type="checkbox"/><label class="form-check-label" for="cAgree">마케팅 문자 수신 동의</label></div>
-<div class="col-12"><button class="btn btn-primary btn-sm" title="UI preview only — backend implementation pending" type="button">저장</button></div>
-</form>
+    <!--
+        고객 등록 입력칸을 CustomerForm의 필드와 연결한다.
+        저장 요청 연결 전까지 제출은 비활성화한다.
+
+        작성자: 김순민
+        작성일: 2026-11-09
+    -->
+    <form class="row g-2"
+          id="addForm"
+          th:object="${customerForm}"
+          onsubmit="return false;">
+
+        <div class="col-md-3">
+            <input class="form-control"
+                   th:field="*{name}"
+                   maxlength="30"
+                   placeholder="이름 *"
+                   required/>
+
+            <div class="text-danger small"
+                 th:if="${#fields.hasErrors('name')}"
+                 th:errors="*{name}"></div>
+        </div>
+
+        <div class="col-md-3">
+            <input class="form-control"
+                   th:field="*{phone}"
+                   placeholder="010-1234-5678 *"
+                   required/>
+
+            <div class="text-danger small"
+                 th:if="${#fields.hasErrors('phone')}"
+                 th:errors="*{phone}"></div>
+        </div>
+
+        <div class="col-md-2">
+            <select class="form-select" th:field="*{birthMonth}">
+                <option value="">생일 월</option>
+                <option th:each="month : ${#numbers.sequence(1, 12)}"
+                        th:value="${month}"
+                        th:text="|${month}월|"></option>
+            </select>
+
+            <div class="text-danger small"
+                 th:if="${#fields.hasErrors('birthMonth')}"
+                 th:errors="*{birthMonth}"></div>
+        </div>
+
+        <div class="col-md-4">
+            <input class="form-control"
+                   th:field="*{memo}"
+                   maxlength="300"
+                   placeholder="메모"/>
+
+            <div class="text-danger small"
+                 th:if="${#fields.hasErrors('memo')}"
+                 th:errors="*{memo}"></div>
+        </div>
+
+        <div class="col-12 form-check ms-2">
+            <input class="form-check-input"
+                   id="agreeMarketing"
+                   type="checkbox"
+                   th:field="*{agreeMarketing}"/>
+
+            <label class="form-check-label" for="agreeMarketing">
+                마케팅 문자 수신 동의
+            </label>
+        </div>
+
+        <div class="col-12">
+            <button class="btn btn-primary btn-sm"
+                    type="button"
+                    disabled>
+                저장 — 연결 준비 중
+            </button>
+        </div>
+    </form>
 </div></div>
 
 <form action="#" class="d-flex gap-2 mb-3" data-demo-only="true" method="get" onsubmit="return false;" style="max-width:420px;">
@@ -73,17 +141,51 @@
 </form>
 <div class="table-responsive"><table class="table table-hover align-middle bg-white">
 <thead class="table-light"><tr><th>이름</th><th>전화번호</th><th>생일</th><th>수신 동의</th><th>등록일</th></tr></thead>
-<tbody>
-<!--/* c.maskedPhone : Customer.getMaskedPhone() → 가운데 4자리를 **** 로 가린 번호 */-->
-<tr>
-<td><a href="/" th:href="@{/}">이름</a></td>
-<td>010-****-0000</td>
-<td>-</td>
-<td><span class="badge">동의</span></td>
-<td>날짜</td>
-</tr>
-<tr><td class="text-center text-muted" colspan="5">고객이 없습니다.</td></tr>
-</tbody>
+    <tbody>
+        <!--
+            매장에 속한 고객 목록을 한 명씩 반복하여 표시한다.
+            전화번호는 마스킹하여 표시한다.
+
+            작성자: 김순민
+            작성일: 2026-11-06
+        -->
+        <tr th:each="customer : ${customers}">
+            <td th:text="${customer.name}">고객 이름</td>
+
+            <td th:text="${customer.maskedPhone}">
+                010-****-0000
+            </td>
+
+            <td th:text="${customer.birthMonth != null
+                ? customer.birthMonth + '월'
+                : '-'}">
+                -
+            </td>
+
+            <td>
+            <span class="badge"
+                  th:classappend="${customer.agreeMarketing
+                      ? 'bg-success'
+                      : 'bg-secondary'}"
+                  th:text="${customer.agreeMarketing
+                      ? '동의'
+                      : '미동의'}">
+                수신 동의 여부
+            </span>
+            </td>
+
+            <td th:text="${#temporals.format(
+                customer.createdAt, 'yyyy-MM-dd')}">
+                등록일
+            </td>
+        </tr>
+
+        <tr th:if="${#lists.isEmpty(customers)}">
+            <td class="text-center text-muted" colspan="5">
+                고객이 없습니다.
+            </td>
+        </tr>
+    </tbody>
 </table></div>
 </main>
 <footer class="saas-footer">
@@ -93,6 +195,10 @@
 </div>
 </footer>
 
-<script src="/js/modern-saas.js" th:src="@{/js/modern-saas.js}" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="/js/modern-saas.js"
+        th:src="@{/js/modern-saas.js}"
+        defer></script>
 </body>
 </html>

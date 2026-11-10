@@ -4,7 +4,6 @@
 -- Passwords are BCrypt hashes of test password "password"; use only for local dummy accounts.
 SET NAMES utf8mb4;
 USE crm;
-
 START TRANSACTION;
 
 -- member: 4 rows
@@ -207,13 +206,3 @@ INSERT IGNORE INTO `image` (`id`, `original_file_name`, `stored_file_name`, `fil
 
 COMMIT;
 -- NOTE: Image rows contain metadata only; no actual image files are created.
-
-SELECT COUNT(*) AS member_count FROM member;
-
-
-SELECT COUNT(*) AS store_count FROM store;
-
-
-SELECT COUNT(*) AS customer_count FROM customer;
-
-
