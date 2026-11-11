@@ -52,8 +52,8 @@
 작성자 한상희
 작성일 2026-11-09
 */-->
-<div class="col-lg-8">
-<div class="card">
+<div class="col-lg-8 d-lg-flex">
+<div class="card w-100">
 <div class="card-header fw-bold">월별 매출 · 방문 고객</div>
 <div class="card-body">
 <p class="small text-muted mb-0" th:if="${summary == null}">매장을 등록하면 월별 추이가 표시됩니다.</p>
@@ -81,8 +81,8 @@
 변경노트 2026-11-10 한상희: 등급별 인원을 도넛 차트로 표시.
 변경노트 2026-11-10 한상희: 고객 등급 카드의 여유 공간에 맞춰 도넛 차트 확대.
 */-->
-<div class="col-lg-4">
-<div class="card">
+<div class="col-lg-4 d-lg-flex">
+<div class="card w-100">
 <div class="card-header fw-bold">고객 등급</div>
 <div class="card-body">
 <p class="small text-muted mb-0" th:if="${rfm == null}">매장을 등록하면 고객 등급이 표시됩니다.</p>
@@ -90,6 +90,12 @@
 <div th:if="${rfm != null and !rfm.rows().isEmpty()}">
 <div class="position-relative mx-auto" style="max-width: 380px;">
 <canvas id="gradeChart" aria-hidden="true" hidden></canvas>
+</div>
+<div id="gradeShare" class="border-top mt-3 pt-3" hidden>
+<h3 class="h6 text-center mb-2">고객 등급별 비율</h3>
+<div class="position-relative" style="height: 90px;">
+<canvas id="gradeShareChart" role="img" aria-label="고객 등급별 비율 누적 가로 막대 차트"></canvas>
+</div>
 </div>
 <table id="rfmGradeCounts" class="table table-sm mb-0" aria-label="고객 등급별 인원">
 <tbody>
@@ -336,7 +342,7 @@
     };
 
     const crownTemplate = document.getElementById('rfmRankCrown');
-    const crownColors = ['#a66a00', '#64748b', '#a3532a'];
+    const crownColors = ['#eab308', '#94a3b8', '#e07a38'];
     const topRows = [...rows].sort(compare['grade-high']).slice(0, crownColors.length);
     topRows.forEach((row, index) => {
         const crown = crownTemplate.content.firstElementChild.cloneNode(true);
@@ -361,6 +367,7 @@
  * 작성일 2026-11-06
  * 변경노트 2026-11-09 한상희: 공통 차트 출력에 시간대별 방문과 월별 추이 연결.
  * 변경노트 2026-11-10 한상희: 고객 등급별 인원 차트 연결.
+ * 변경노트 2026-11-11 한상희: 고객 등급별 비율을 한 줄의 누적 가로 막대로 표시.
  */
 (() => {
     /**
@@ -385,25 +392,68 @@
             data: rows.map(row => Number(row.cells[index + 1].textContent))
         }));
         canvas.hidden = false;
-        new Chart(canvas, {
+        const chart = new Chart(canvas, {
             type,
             data: { labels, datasets },
             options: { plugins: { legend: { display: series.length > 1 } }, ...options }
         });
         table.classList.add('visually-hidden');
+        return chart;
     }
 
     const visitSeries = [{ label: '방문 건수', backgroundColor: '#2563eb' }];
     const visitOptions = { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } };
     drawChart('weekChart', 'weekdayVisitCounts', visitSeries, visitOptions);
     drawChart('hourChart', 'hourlyVisitCounts', visitSeries, visitOptions);
-    drawChart('gradeChart', 'rfmGradeCounts', [
-        { label: '고객 수', backgroundColor: ['#d97706', '#2563eb', '#64748b', '#dc2626'] }
-    ], {
+    const gradeColors = ['#d97706', '#2563eb', '#64748b', '#dc2626'];
+    const gradeLegend = { usePointStyle: true, pointStyle: 'circle' };
+    const gradeChart = drawChart('gradeChart', 'rfmGradeCounts', [{ label: '고객 수', backgroundColor: gradeColors }], {
         aspectRatio: 1.15,
         cutout: '52%',
-        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'circle' } } }
+        plugins: { legend: { position: 'bottom', labels: gradeLegend } }
     }, 'doughnut');
+
+    const gradeShare = document.getElementById('gradeShare');
+    if (gradeShare && gradeChart) {
+        const counts = gradeChart.data.datasets[0].data;
+        const total = counts.reduce((sum, count) => sum + count, 0);
+        const percentages = counts.map(count => total > 0 ? count / total * 100 : 0);
+        const percentLabel = new Intl.NumberFormat('ko-KR', { style: 'percent', maximumFractionDigits: 1 });
+        const shareLabels = gradeChart.data.labels.map((grade, index) =>
+            grade + ' ' + percentLabel.format(percentages[index] / 100));
+        const shareCanvas = document.getElementById('gradeShareChart');
+        shareCanvas.setAttribute('aria-label', '고객 등급별 비율. ' + shareLabels.join(', '));
+        gradeShare.hidden = false;
+        new Chart(shareCanvas, {
+            type: 'bar',
+            data: {
+                labels: ['고객 등급별 비율'],
+                datasets: shareLabels.map((label, index) => ({
+                    label,
+                    data: [percentages[index]],
+                    backgroundColor: gradeColors[index],
+                    maxBarThickness: 24
+                }))
+            },
+            options: {
+                indexAxis: 'y',
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, min: 0, max: 100, display: false },
+                    y: { stacked: true, display: false }
+                },
+                plugins: {
+                    legend: { position: 'bottom', labels: { ...gradeLegend, boxWidth: 8, padding: 8 } },
+                    tooltip: {
+                        callbacks: {
+                            title: () => '',
+                            label: item => item.dataset.label + ' (' + counts[item.datasetIndex] + '명)'
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     drawChart('monthlyChart', 'monthlyVisitTotals', [
         { label: '매출(원)', yAxisID: 'revenue', backgroundColor: '#2563eb' },
