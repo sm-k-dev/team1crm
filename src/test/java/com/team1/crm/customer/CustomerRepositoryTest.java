@@ -10,6 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -36,10 +37,14 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.sql.init.mode=never"
 })
 @ActiveProfiles("test")
+@Import(CustomerService.class)
 class CustomerRepositoryTest {
 
     @Autowired
     private CustomerRepository customerRepository;
+
+    @Autowired
+    private CustomerService customerService;
 
     @Autowired
     private EntityManager entityManager;
@@ -330,6 +335,76 @@ class CustomerRepositoryTest {
                         secondPage.getContent().stream()
                                 .map(Customer::getId)
                                 .toList()
+                )
+        );
+    }
+
+    /**
+     * 수정 Service로 변경한 고객 정보가 실제 테스트 DB에 반영되는지 확인한다.
+     * 고객 ID·소속 매장·생성일은 유지되어야 한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @Test
+    @DisplayName("고객 수정 내용이 DB에 반영되고 소속 매장과 생성일은 유지된다")
+    void customerUpdateIsPersisted() {
+        Store store = createStore("update-store");
+
+        Customer customer = createCustomer(
+                store,
+                "수정 전 이름",
+                "010-1111-2222"
+        );
+
+        Long storeId = store.getId();
+        Long customerId = customer.getId();
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // DB에 저장된 값을 기준으로 생성일을 기억한다.
+        Customer beforeUpdate = customerRepository
+                .findByIdAndStore_Id(customerId, storeId)
+                .orElseThrow();
+
+        var originalCreatedAt = beforeUpdate.getCreatedAt();
+
+        entityManager.clear();
+
+        CustomerForm form = new CustomerForm();
+        form.setName("수정 후 이름");
+        form.setPhone("01033334444");
+        form.setBirthMonth(7);
+        form.setMemo("변경한 메모");
+        form.setAgreeMarketing(true);
+
+        // 실제 Service를 통해 수정한다.
+        customerService.updateCustomer(storeId, customerId, form);
+
+        // JPA 변경 감지로 DB에 반영하고 관리 중인 객체를 비운다.
+        entityManager.flush();
+        entityManager.clear();
+
+        // 메모리의 기존 객체가 아니라 DB에서 다시 조회한다.
+        Customer updated = customerRepository
+                .findByIdAndStore_Id(customerId, storeId)
+                .orElseThrow();
+
+        assertAll(
+                () -> assertEquals(customerId, updated.getId()),
+                () -> assertEquals("수정 후 이름", updated.getName()),
+                () -> assertEquals("010-3333-4444", updated.getPhone()),
+                () -> assertEquals(
+                        Integer.valueOf(7),
+                        updated.getBirthMonth()
+                ),
+                () -> assertEquals("변경한 메모", updated.getMemo()),
+                () -> assertTrue(updated.isAgreeMarketing()),
+                () -> assertEquals(storeId, updated.getStore().getId()),
+                () -> assertEquals(
+                        originalCreatedAt,
+                        updated.getCreatedAt()
                 )
         );
     }
