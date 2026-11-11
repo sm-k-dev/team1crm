@@ -1,10 +1,18 @@
 package com.team1.crm.analytics.ai;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
 /**
- * Team implementation placeholder.
- * Original implementation is preserved in the separate Reference Bundle.
- * Define responsibilities and contracts with your team before coding.
+ * AI 연결 설정 또는 응답 오류를 서비스 이용 불가로 전달한다.
+ *
+ * 작성자 한상희
+ * 작성일 2026-11-11
  */
-public class AiUnavailableException {
-    // TODO: implement as assigned by team.
+@ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+public class AiUnavailableException extends RuntimeException {
+    /** 화면에 표시할 고정 안내 문구를 받는다. 작성자 한상희, 작성일 2026-11-11 */
+    public AiUnavailableException(String userMessage) {
+        super(userMessage);
+    }
 }
