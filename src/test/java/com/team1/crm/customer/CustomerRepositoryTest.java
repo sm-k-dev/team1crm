@@ -408,4 +408,85 @@ class CustomerRepositoryTest {
                 )
         );
     }
+
+    /**
+     * 같은 매장 다른 고객의 전화번호로 수정하면 거부하고
+     * DB에 저장된 기존 고객 정보를 유지하는지 확인한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @Test
+    @DisplayName("중복 번호로 수정하면 DB의 기존 고객 정보가 유지된다")
+    void duplicatePhoneUpdateKeepsOriginalData() {
+        Store store = createStore("duplicate-update");
+
+        Customer target = createCustomer(
+                store,
+                "수정 전 이름",
+                "010-1111-2222"
+        );
+
+        Customer other = createCustomer(
+                store,
+                "다른 고객",
+                "010-3333-4444"
+        );
+
+        Long storeId = store.getId();
+        Long targetId = target.getId();
+        Long otherId = other.getId();
+
+        entityManager.flush();
+        entityManager.clear();
+
+        CustomerForm form = new CustomerForm();
+        form.setName("바뀌면 안 되는 이름");
+        form.setPhone("01033334444");
+        form.setBirthMonth(7);
+        form.setMemo("저장되면 안 되는 메모");
+        form.setAgreeMarketing(true);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> customerService.updateCustomer(
+                        storeId,
+                        targetId,
+                        form
+                )
+        );
+
+        assertEquals(
+                "이미 등록된 고객입니다.",
+                exception.getMessage()
+        );
+
+        // 관리 중인 객체를 비운 뒤 DB의 기존 값을 다시 확인한다.
+        entityManager.clear();
+
+        Customer unchanged = customerRepository
+                .findByIdAndStore_Id(targetId, storeId)
+                .orElseThrow();
+
+        Customer unchangedOther = customerRepository
+                .findByIdAndStore_Id(otherId, storeId)
+                .orElseThrow();
+
+        assertAll(
+                () -> assertEquals("수정 전 이름", unchanged.getName()),
+                () -> assertEquals("010-1111-2222", unchanged.getPhone()),
+                () -> assertNull(unchanged.getBirthMonth()),
+                () -> assertNull(unchanged.getMemo()),
+                () -> assertFalse(unchanged.isAgreeMarketing()),
+                () -> assertEquals("다른 고객", unchangedOther.getName()),
+                () -> assertEquals(
+                        "010-3333-4444",
+                        unchangedOther.getPhone()
+                ),
+                () -> assertEquals(
+                        2L,
+                        customerRepository.countByStoreId(storeId)
+                )
+        );
+    }
 }
