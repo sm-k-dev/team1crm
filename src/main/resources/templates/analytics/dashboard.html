@@ -158,12 +158,25 @@
 </div>
 <div class="card mb-4 border-primary"><div class="card-body">
 <h5><i class="bi bi-robot"></i> AI 재방문 문구</h5>
-<p class="small text-muted">고객 이름·전화번호는 AI 에 보내지 않고 등급별 인원 등 집계 숫자만 보냅니다. 문자는 수신 동의 고객에게만 보내세요. (무료 AI 모델 · 1인 하루 5회)</p>
-<div class="d-flex gap-2 flex-wrap mb-2">
-
-<button class="btn btn-outline-primary btn-sm btn-grade" type="button">등급</button>
-</div>
-<div class="small text-muted" id="aiMsg"></div>
+<p class="small text-muted">AI는 매장 업종과 고객 등급·인원수를 참고합니다. 고객 이름과 전화번호는 전송하지 않습니다. 문자는 수신 동의 고객에게만 보내세요. (무료 AI 모델 · 1인 하루 5회)</p>
+<!--/*
+선택한 매장과 월에 고객이 있는 등급의 재방문 문구를 요청한다.
+작성자 한상희
+작성일 2026-11-11
+*/-->
+<form id="aiMarketingForm" method="post" th:action="@{/api/ai/marketing-suggestions}"
+      th:if="${rfm != null and !rfm.rows().isEmpty()}" class="d-flex align-items-center gap-2 flex-wrap mb-2">
+<input type="hidden" name="storeId" th:value="${selectedStore.id}"/>
+<input type="hidden" name="month" th:value="${selectedMonth}"/>
+<label for="aiGrade">고객 등급</label>
+<select id="aiGrade" class="form-select form-select-sm" style="width: 10rem; max-width: 100%;" name="grade" required>
+<option th:each="grade : ${rfm.gradeCounts()}" th:if="${grade.count() > 0}"
+        th:value="${grade.label()}" th:text="|${grade.label()} (${grade.count()}명)|"></option>
+</select>
+<button class="btn btn-outline-primary btn-sm" type="submit">문구 생성</button>
+</form>
+<p class="small text-muted" th:if="${rfm == null or rfm.rows().isEmpty()}">선택한 매장과 월에 방문 고객이 있으면 문구를 만들 수 있습니다.</p>
+<div class="small text-muted" id="aiMsg" role="status"></div>
 <ol class="mt-2" id="aiList"></ol>
 </div></div>
 <div class="card">
@@ -232,6 +245,64 @@
 </footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script th:inline="none">
+/**
+ * 선택한 등급의 문구를 요청하고 응답을 일반 텍스트로 표시한다.
+ *
+ * 작성자 한상희
+ * 작성일 2026-11-11
+ * 변경노트 2026-11-11 한상희: 외부 AI 요청 제한과 앱의 일일 제한을 구분해 표시.
+ */
+(() => {
+    const form = document.getElementById('aiMarketingForm');
+    if (!form) {
+        return;
+    }
+
+    const status = document.getElementById('aiMsg');
+    const suggestions = document.getElementById('aiList');
+    const button = form.querySelector('button[type="submit"]');
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        button.disabled = true;
+        status.textContent = '문구를 만들고 있습니다.';
+        suggestions.replaceChildren();
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: { Accept: 'application/json' },
+                body: new URLSearchParams(new FormData(form))
+            });
+            if (response.redirected || response.status === 401) {
+                status.textContent = '로그인 후 다시 시도해 주세요.';
+            } else if (response.status === 403) {
+                status.textContent = '매장 조회 권한 또는 로그인 상태를 확인해 주세요.';
+            } else if (response.status === 429) {
+                status.textContent = '오늘 문구 생성 5회를 모두 사용했거나 진행 중인 요청이 있습니다.';
+            } else if (response.status === 400) {
+                status.textContent = '매장, 조회 월과 고객 등급을 다시 확인해 주세요.';
+            } else if (response.status === 503) {
+                const error = await response.json().catch(() => null);
+                status.textContent = error?.message || 'AI 문구 생성 서비스를 잠시 이용할 수 없습니다.';
+            } else if (!response.ok) {
+                status.textContent = '문구를 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+            } else {
+                const result = await response.json();
+                for (const message of result.suggestions) {
+                    const item = document.createElement('li');
+                    item.textContent = message;
+                    suggestions.append(item);
+                }
+                const mode = result.example ? '예시 문구' : 'AI 생성 문구';
+                status.textContent = mode + ' · 오늘 남은 횟수 ' + result.remaining + '회';
+            }
+        } catch (error) {
+            status.textContent = '문구 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+        } finally {
+            button.disabled = false;
+        }
+    });
+})();
+
 /**
  * RFM 표의 행을 선택한 기준으로 정렬한다. 점수와 차트 집계는 다시 계산하지 않는다.
  * 같은 값은 서버에서 전달받은 행 순서를 유지한다.
