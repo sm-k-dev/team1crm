@@ -10,10 +10,75 @@
 <link rel="stylesheet" href="/css/modern-saas.css" th:href="@{/css/modern-saas.css}"/>
 </head><body><nav th:replace="~{fragments/navigation :: navigation}"></nav><main class="container py-4">
 <h1 class="h3">매장 운영 현황</h1><p class="text-secondary">매장과 사장님 계정의 연결을 관리합니다. 매출 정보는 표시하지 않습니다.</p>
-<div class="row g-2 mb-3"><div class="col-md-4"><div class="card p-3">전체 매장 <strong>0</strong></div></div><div class="col-md-4"><div class="card p-3">연결된 매장 <strong>0</strong></div></div><div class="col-md-4"><div class="card p-3">사장님 계정 <strong>0</strong></div></div></div>
-<div class="alert alert-info"></div>
-<div class="card p-3 mb-3"><h2 class="h5">매장 등록</h2><form action="#" class="row g-2" data-demo-only="true" method="post" onsubmit="return false;"><div class="col-md-3"><input class="form-control" maxlength="50" name="name" placeholder="매장명" required=""/></div><div class="col-md-2"><input class="form-control" maxlength="30" name="category" placeholder="업종"/></div><div class="col-md-3"><input class="form-control" maxlength="200" name="address" placeholder="주소"/></div><div class="col-md-3"><select class="form-select" name="ownerId" required=""><option value="">사장님 선택</option><option></option></select></div><div class="col-md-1"><button class="btn btn-primary btn-sm">등록</button></div></form></div>
-<div class="card p-3"><h2 class="h5">매장 관리</h2><div class="table-responsive"><table class="table align-middle"><thead><tr><th>ID</th><th>매장명</th><th>업종</th><th>주소</th><th>연결된 사장님</th><th>관리</th></tr></thead><tbody><tr><td></td><td colspan="4"><form action="#" class="row g-1" data-demo-only="true" method="post" onsubmit="return false;"><div class="col"><input class="form-control form-control-sm" name="name" required=""/></div><div class="col"><input class="form-control form-control-sm" name="category"/></div><div class="col"><input class="form-control form-control-sm" name="address"/></div><div class="col"><select class="form-select form-select-sm" name="ownerId"><option></option></select></div></form></td><td><button class="btn btn-outline-primary btn-sm">수정</button> <form action="#" class="d-inline" data-demo-only="true" method="post" onsubmit="return false;"><button class="btn btn-outline-danger btn-sm" title="보존 정책 확정 전 삭제 비활성">삭제 요청</button></form></td></tr></tbody></table></div></div>
+<!-- 전체 매장과 사장님 연결 정보를 조회한다. 작성자: 김순민 / 작성일: 2026-11-11 -->
+<div class="row g-2 mb-3">
+  <div class="col-md-4"><div class="card p-3">전체 매장 <strong th:text="${storeCount}">0</strong></div></div>
+  <div class="col-md-4"><div class="card p-3">연결된 매장 <strong th:text="${linkedStoreCount}">0</strong></div></div>
+  <div class="col-md-4"><div class="card p-3">매장에 연결된 사장님 <strong th:text="${linkedOwnerCount}">0</strong></div></div>
+</div>
+<div class="alert alert-success" th:if="${successMessage != null}" th:text="${successMessage}"></div>
+<!-- 매장 등록·수정 입력값과 검증 오류를 표시한다. 작성자: 김순민 / 작성일: 2026-11-11 -->
+<div class="card p-3 mb-3">
+  <h2 class="h5" th:text="${editingId != null ? '매장 수정' : '매장 등록'}">매장 등록</h2>
+  <form class="row g-3" method="post" th:object="${storeForm}"
+        th:action="${editingId != null} ? @{/admin/stores/{id}(id=${editingId})} : @{/admin/stores}">
+    <div class="col-md-6">
+      <label for="name" class="form-label">매장명</label>
+      <input id="name" class="form-control" th:field="*{name}" maxlength="50" required/>
+      <div class="text-danger small" th:errors="*{name}"></div>
+    </div>
+    <div class="col-md-6">
+      <label for="category" class="form-label">업종</label>
+      <input id="category" class="form-control" th:field="*{category}" maxlength="30"/>
+      <div class="text-danger small" th:errors="*{category}"></div>
+    </div>
+    <div class="col-12">
+      <label for="address" class="form-label">주소</label>
+      <input id="address" class="form-control" th:field="*{address}" maxlength="200"/>
+      <div class="text-danger small" th:errors="*{address}"></div>
+    </div>
+    <div class="col-md-8">
+      <label for="ownerId" class="form-label">연결할 사장님</label>
+      <select id="ownerId" class="form-select" th:field="*{ownerId}" required>
+        <option value="">사장님 선택</option>
+        <option th:each="owner : ${owners}" th:value="${owner.id}"
+                th:text="${owner.nickname + ' (' + owner.email + ')'}"></option>
+      </select>
+      <div class="text-danger small" th:errors="*{ownerId}"></div>
+      <div class="text-muted small" th:if="${#lists.isEmpty(owners)}">연결할 사장님 계정이 없습니다.</div>
+    </div>
+    <div class="col-md-4">
+      <label for="pointRate" class="form-label">포인트 적립률 (%)</label>
+      <input id="pointRate" class="form-control" type="number" min="0" max="100" th:field="*{pointRate}" required/>
+      <div class="text-danger small" th:errors="*{pointRate}"></div>
+    </div>
+    <div class="col-12 d-flex gap-2">
+      <button type="submit" class="btn btn-primary" th:text="${editingId != null ? '수정 저장' : '매장 등록'}">저장</button>
+      <a class="btn btn-outline-secondary" th:if="${editingId != null}" th:href="@{/admin/stores}">취소</a>
+    </div>
+  </form>
+</div>
+<div class="card p-3">
+  <h2 class="h5">매장 목록</h2>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th scope="col">ID</th><th scope="col">매장명</th><th scope="col">업종</th><th scope="col">주소</th><th scope="col">연결된 사장님</th><th scope="col">이메일</th><th scope="col">적립률</th><th scope="col">관리</th></tr></thead>
+      <tbody>
+        <tr th:each="store : ${stores}">
+          <td th:text="${store.id}"></td>
+          <td th:text="${store.name}"></td>
+          <td th:text="${#strings.isEmpty(store.category) ? '-' : store.category}"></td>
+          <td th:text="${#strings.isEmpty(store.address) ? '-' : store.address}"></td>
+          <td th:text="${store.ownerId == null ? '미연결' : store.ownerNickname}"></td>
+          <td th:text="${store.ownerEmail ?: '-'}"></td>
+          <td th:text="${store.pointRate + '%'}"></td>
+          <td><a class="btn btn-outline-primary btn-sm" th:href="@{/admin/stores/{id}/edit(id=${store.id})}">수정</a></td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(stores)}"><td colspan="8" class="text-center text-muted">등록된 매장이 없습니다.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 </main><footer class="saas-footer">
 <div class="text-center">
 <p class="mb-1"><i class="bi bi-person-hearts"></i> 단골 고객 관리</p>
