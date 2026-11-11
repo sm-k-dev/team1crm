@@ -1,6 +1,8 @@
 package com.team1.crm.admin;
 
 import com.team1.crm.auth.Store;
+import com.team1.crm.auth.Role;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 
@@ -22,4 +24,11 @@ public interface AdminStoreRepository extends Repository<Store, Long> {
             order by s.id
             """)
     List<AdminStoreRow> findStoreRows();
+
+    /** 비밀번호 없이 지정 역할의 계정 정보만 조회한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Query("""
+            select new com.team1.crm.admin.AdminOwnerOption(m.id, m.nickname, m.email)
+            from Member m where m.role = :role order by m.id
+            """)
+    List<AdminOwnerOption> findOwnerOptions(@Param("role") Role role);
 }

@@ -28,11 +28,15 @@ public class AdminStoreService {
 
     /** 현재 사장님 역할인 USER 계정만 선택지로 제공한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     public List<AdminOwnerOption> findOwners() {
-        return memberRepository.findAll().stream()
-                .filter(member -> member.getRole() == Role.USER)
-                .sorted(java.util.Comparator.comparing(Member::getId))
-                .map(member -> new AdminOwnerOption(member.getId(), member.getNickname(), member.getEmail()))
-                .toList();
+        return adminStoreRepository.findOwnerOptions(Role.USER);
+    }
+
+    /** 매장 없는 계정도 포함하여 사장님과 소유 매장들을 연결한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    public List<AdminOwnerRow> findOwnerRows() {
+        var storesByOwner = findStores().stream().filter(store -> store.ownerId() != null)
+                .collect(java.util.stream.Collectors.groupingBy(AdminStoreRow::ownerId));
+        return findOwners().stream().map(owner -> new AdminOwnerRow(owner.id(), owner.email(), owner.nickname(),
+                List.copyOf(storesByOwner.getOrDefault(owner.id(), List.of())))).toList();
     }
 
     /** 기존 매장을 수정 입력값으로 변환한다. 작성자: 김순민 / 작성일: 2026-11-11 */

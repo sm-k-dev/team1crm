@@ -105,7 +105,9 @@
                     th:text : 매장 이름 표시
                     th:selected : 기본 선택 매장 지정
                 -->
-                <select class="form-select mt-3"
+                <form method="get" th:action="@{/}">
+                <label for="storeSelect" class="visually-hidden">관리할 매장</label>
+                <select name="storeId" onchange="this.form.requestSubmit()" class="form-select mt-3"
                         id="storeSelect"
                         style="max-width: 400px;">
 
@@ -117,6 +119,8 @@
                     </option>
 
                 </select>
+                <noscript><button type="submit" class="btn btn-primary mt-2">조회</button></noscript>
+                </form>
 
             </div>
 
@@ -138,26 +142,27 @@
             + 매장 운영 현황 KPI 영역
             역할: 등록 고객, 오늘 방문, 이번 달 매출,
                   재방문율 정보를 카드 형태로 표시합니다.
-            현재 화면에는 각 항목의 초기 표시값이 0으로 작성되어 있습니다.
+            선택 매장의 실제 집계를 표시합니다. 재방문율은 집계 기준 확정 후 제공합니다.
+            변경노트: 2026-11-11 김순민 - 홈 요약 연결.
         -->
         <div class="row g-3">
 
             <!-- 등록 고객 수 -->
-            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-people-fill"></i></span><div><div class="saas-kpi-label">등록 고객</div><div class="saas-kpi-value">0명</div></div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-people-fill"></i></span><div><div class="saas-kpi-label">등록 고객</div><div class="saas-kpi-value" th:text="${summary != null ? #numbers.formatInteger(summary.customerCount, 1, 'COMMA') + '명' : '-'}">0명</div></div></div></div></div>
 
             <!-- 오늘 방문 건수 -->
-            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-person-check-fill"></i></span><div><div class="saas-kpi-label">오늘 방문</div><div class="saas-kpi-value">0건</div></div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-person-check-fill"></i></span><div><div class="saas-kpi-label">오늘 방문</div><div class="saas-kpi-value" th:text="${summary != null ? #numbers.formatInteger(summary.todayVisits, 1, 'COMMA') + '건' : '-'}">0건</div></div></div></div></div>
 
             <!-- 이번 달 매출 -->
-            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-wallet2"></i></span><div><div class="saas-kpi-label">이번 달 매출</div><div class="saas-kpi-value">0원</div></div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-wallet2"></i></span><div><div class="saas-kpi-label">이번 달 매출</div><div class="saas-kpi-value" th:text="${summary != null ? #numbers.formatInteger(summary.monthRevenue, 1, 'COMMA') + '원' : '-'}">0원</div></div></div></div></div>
 
             <!-- 고객 재방문율 -->
-            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-arrow-repeat"></i></span><div><div class="saas-kpi-label">재방문율</div><div class="saas-kpi-value">0%</div></div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card saas-kpi"><div class="card-body"><span class="saas-kpi-icon"><i class="bi bi-arrow-repeat"></i></span><div><div class="saas-kpi-label">재방문율</div><div class="saas-kpi-value" title="재방문율은 집계 기준 확정 후 제공됩니다.">-</div></div></div></div></div>
 
         </div>
 
         <!-- 고객 관리 및 분석 대시보드 이동 버튼 -->
-        <div class="saas-home-actions"><a class="btn btn-primary" href="/customers" th:href="@{/customers}"><i class="bi bi-people me-1"></i> 고객 관리</a><a class="btn btn-outline-primary" href="/analytics/dashboard" th:href="@{/analytics/dashboard}"><i class="bi bi-bar-chart-line me-1"></i> 분석 대시보드</a></div>
+        <div class="saas-home-actions"><a class="btn btn-primary" href="/customers" th:href="${selectedStore != null} ? @{/customers(storeId=${selectedStore.id})} : @{/customers}"><i class="bi bi-people me-1"></i> 고객 관리</a><a class="btn btn-outline-primary" href="/analytics/dashboard" th:href="${selectedStore != null} ? @{/analytics/dashboard(storeId=${selectedStore.id})} : @{/analytics/dashboard}"><i class="bi bi-bar-chart-line me-1"></i> 분석 대시보드</a></div>
 
         <!-- 분석 대시보드 기능 안내 -->
         <p class="saas-note">상세 매출 추이, RFM 고객 등급 및 AI 마케팅 문구는 분석 대시보드에서 확인할 수 있습니다.</p>
@@ -420,38 +425,7 @@
     });
 </script>
 
-<script>
 
-    /*
-     * + 선택한 매장 이름 변경
-     * 역할: 매장 선택 드롭다운에서 다른 매장을 선택하면
-     *       화면 상단에 표시된 매장 이름을 변경합니다.
-     */
-    document.addEventListener("DOMContentLoaded", function () {
-
-        // 매장 선택 드롭다운과 매장 이름 출력 요소 가져오기
-        const storeSelect = document.getElementById("storeSelect");
-        const selectedStoreName = document.getElementById("selectedStoreName");
-
-        // 매장 선택 영역이 존재하지 않으면 실행 중단
-        if (!storeSelect || !selectedStoreName) {
-            return;
-        }
-
-        // 사용자가 다른 매장을 선택했을 때 실행
-        storeSelect.addEventListener("change", function () {
-
-            // 선택한 option의 매장 이름 가져오기
-            const storeName =
-                storeSelect.options[storeSelect.selectedIndex].text;
-
-            // 화면 상단의 매장 이름 변경
-            selectedStoreName.textContent = storeName;
-
-        });
-
-    });
-</script>
 
 </body>
 </html>
