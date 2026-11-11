@@ -9,6 +9,7 @@ import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 // ============================================================
 // [Customer] 고객 (B 고객 담당) → customer 테이블
@@ -36,7 +37,8 @@ public class Customer {
     @Column(nullable = false, length = 30)
     private String name;
 
-    @Column(nullable = false, length = 13)
+    // 활성 고객의 번호는 Form/Service에서 필수 검증하며, 개인정보 제거 후에는 null이다.
+    @Column(length = 13)
     private String phone;          // 010-1234-5678
 
     private Integer birthMonth;    // 1~12, 생일 쿠폰용 (선택)
@@ -50,6 +52,25 @@ public class Customer {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    // null이면 사용 중인 고객이며, 값이 있으면 해당 시각부터 소프트 삭제 상태이다.
+    private LocalDateTime deletedAt;
+
+    // 고객 행과 거래 이력은 남기고 주요 고객 정보를 제거한 시각이다.
+    private LocalDateTime anonymizedAt;
+
+    /**
+     * 고객을 소프트 삭제한다. 과거 집계 보존을 위해 고객과 관련 기록은 실제 삭제하지 않는다.
+     * 중복 호출 시 최초 삭제 시각을 유지한다.
+     *
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    public void softDelete() {
+        if (deletedAt == null) {
+            deletedAt = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+        }
+    }
 
     public Customer(Store store, String name, String phone, Integer birthMonth, String memo, boolean agreeMarketing, LocalDateTime createdAt) {
         this.store = store;

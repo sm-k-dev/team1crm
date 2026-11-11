@@ -12,10 +12,11 @@ import java.util.List;
 
 /**
  * 고객 조회와 고객 관리 업무를 처리하는 서비스이다.
- * 매장별 고객 목록 조회와 고객 등록 기능을 제공한다.
+ * 매장별 고객 조회·등록·수정 및 소프트 삭제 기능을 제공한다.
  *
  * 작성자: 김순민
  * 작성일: 2026-11-06
+ * 변경노트 2026-11-11 김순민: 소프트 삭제와 삭제 고객 업무 접근 제한 추가
  */
 @Service
 @RequiredArgsConstructor
@@ -25,9 +26,22 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
 
     /**
+     * 소유권 확인을 마친 매장의 고객을 소프트 삭제한다.
+     * 삭제된 고객은 일반 조회·수정에서 제외하고 관련 이력은 보존한다.
+     *
+     * @param storeId 접근 권한을 확인한 매장의 ID
+     * @param customerId 삭제할 고객의 ID
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @Transactional
+    public void deleteCustomer(Long storeId, Long customerId) {
+        findCustomer(storeId, customerId).softDelete();
+    }
+
+    /**
      * 지정한 매장에 속한 고객 목록을 고객 ID 오름차순으로 조회한다.
-     * 현재 매장 소유권 검증은 구현되어 있지 않으며,
-     * 인증 연동 시 조회 전에 로그인한 사용자의 매장 접근 권한을 확인해야 한다.
+     * 삭제 고객은 제외하며, 호출 전에 로그인한 사용자의 매장 접근 권한을 확인해야 한다.
      *
      * @param storeId 조회할 매장의 ID
      * @return 해당 매장의 고객 목록. 고객이 없으면 빈 목록

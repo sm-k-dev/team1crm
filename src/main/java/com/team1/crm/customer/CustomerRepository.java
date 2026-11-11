@@ -4,19 +4,44 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 /**
  * 고객 정보를 DB에 저장하고 조회하는 Repository 인터페이스이다.
  * JpaRepository를 상속하므로 @Repository를 생략할 수 있다.
+ * 업무용 조회는 소프트 삭제 고객을 제외한다. 전화번호 중복 검사는 보관 고객도 포함한다.
  *
  * 작성자: 김순민
  * 작성일: 2026-11-06
+ * 변경노트 2026-11-11 김순민: 업무용 고객 조회에 삭제 시각 조건 추가
  */
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
+
+    /**
+     * 삭제 후 달력 기준 3개월이 지난 고객의 주요 정보를 한 SQL로 제거한다.
+     * MySQL과 H2가 지원하는 TIMESTAMPADD를 사용해 월말 경계를 처리한다.
+     * 고객 ID·매장·생성일·삭제일과 관련 거래 기록은 유지한다.
+     *
+     * @param processedAt 개인정보 제거 대상 판정 및 완료 시각(Asia/Seoul)
+     * @return 이번 실행에서 처리한 고객 수
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            update customer
+            set name = '삭제된 고객', phone = null, birth_month = null,
+                memo = null, agree_marketing = false, anonymized_at = :processedAt
+            where deleted_at is not null
+              and anonymized_at is null
+              and timestampadd(month, 3, deleted_at) <= :processedAt
+            """, nativeQuery = true)
+    int removeExpiredPersonalData(@Param("processedAt") LocalDateTime processedAt);
 
     /**
      * 지정한 매장에 속한 고객 목록을 고객 ID 오름차순으로 조회한다.
@@ -28,10 +53,12 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      * 작성자: 김순민
      * 작성일: 2026-11-06
      */
-    List<Customer> findAllByStore_IdOrderByIdAsc(Long storeId);
+    @Query("select c from Customer c where c.store.id = :storeId and c.deletedAt is null order by c.id asc")
+    List<Customer> findAllByStore_IdOrderByIdAsc(@Param("storeId") Long storeId);
 
-    // 특정 매장에 등록된 고객 수 조회
-    long countByStoreId(Long storeId);
+    // 특정 매장에서 소프트 삭제되지 않은 고객 수 조회
+    @Query("select count(c) from Customer c where c.store.id = :storeId and c.deletedAt is null")
+    long countByStoreId(@Param("storeId") Long storeId);
 
     /**
      * 지정한 매장에 같은 전화번호를 가진 고객이 있는지 확인한다.
@@ -56,7 +83,8 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      * 작성자: 김순민
      * 작성일: 2026-11-10
      */
-    Optional<Customer> findByIdAndStore_Id(Long customerId, Long storeId);
+    @Query("select c from Customer c where c.id = :customerId and c.store.id = :storeId and c.deletedAt is null")
+    Optional<Customer> findByIdAndStore_Id(@Param("customerId") Long customerId, @Param("storeId") Long storeId);
 
     /**
      * 수정할 고객을 제외하고 같은 매장에 같은 전화번호가 있는지 확인한다.
@@ -90,6 +118,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
         select c
         from Customer c
         where c.store.id = :storeId
+          and c.deletedAt is null
           and (
               locate(:keyword, c.name) > 0
               or substring(c.phone, length(c.phone) - 3, 4) = :keyword
@@ -111,7 +140,8 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      * 작성자: 김순민
      * 작성일: 2026-11-10
      */
-    Page<Customer> findAllByStore_Id(Long storeId, Pageable pageable);
+    @Query("select c from Customer c where c.store.id = :storeId and c.deletedAt is null")
+    Page<Customer> findAllByStore_Id(@Param("storeId") Long storeId, Pageable pageable);
 
     /**
      * 지정한 매장에서 이름 또는 전화번호 뒤 4자리로 검색하고 결과를 페이지로 반환한다.
@@ -128,6 +158,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
         select c
         from Customer c
         where c.store.id = :storeId
+          and c.deletedAt is null
           and (
               locate(:keyword, c.name) > 0
               or substring(c.phone, length(c.phone) - 3, 4) = :keyword
