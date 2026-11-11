@@ -37,8 +37,181 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.sql.init.mode=never"
 })
 @ActiveProfiles("test")
-@Import(CustomerService.class)
+@Import({CustomerService.class, CustomerPrivacyService.class})
 class CustomerRepositoryTest {
+
+    @Autowired
+    private CustomerPrivacyService customerPrivacyService;
+
+    /**
+     * 보관 기간 경계와 월말 보정을 실제 DB의 날짜 계산으로 검증한다.
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "2026-08-11T03:00:00,2026-11-11T03:00:00,1",
+            "2026-08-11T03:00:01,2026-11-11T03:00:00,0",
+            "2026-11-30T03:00:00,2027-02-28T03:00:00,1",
+            "2026-11-30T03:00:00,2027-02-28T02:59:59,0",
+            "2026-01-31T03:00:00,2026-04-30T03:00:00,1",
+            "2027-11-30T03:00:00,2028-02-29T03:00:00,1"
+    })
+    @DisplayName("정확히 달력 3개월이 지난 고객만 월말 경계를 포함해 처리한다")
+    void privacyRetentionBoundary(String deleted, String processing, int expected) {
+        Store store = createStore("privacy-boundary");
+        Customer customer = createCustomer(store, "보관 고객", "010-1111-5678");
+        Long id = customer.getId();
+        setDeletedAt(id, java.time.LocalDateTime.parse(deleted));
+        int affected = customerPrivacyService.removeExpiredPersonalData(java.time.LocalDateTime.parse(processing));
+        Customer result = entityManager.find(Customer.class, id);
+        assertEquals(expected, affected);
+        assertEquals(expected == 1 ? "삭제된 고객" : "보관 고객", result.getName());
+        assertEquals(expected == 1 ? null : "010-1111-5678", result.getPhone());
+    }
+
+    /**
+     * 테스트 고객의 삭제 시각을 고정하여 실제 3개월을 기다리지 않고 검증한다.
+     * @param customerId 테스트 고객 ID
+     * @param deletedAt 설정할 삭제 시각
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    private void setDeletedAt(Long customerId, java.time.LocalDateTime deletedAt) {
+        entityManager.flush();
+        entityManager.createNativeQuery("update customer set deleted_at = :at where id = :id")
+                .setParameter("at", deletedAt).setParameter("id", customerId).executeUpdate();
+        entityManager.clear();
+    }
+
+    /**
+     * 여러 고객의 정보 제거·미대상 보존·재실행과 거래 이력·고유 방문 고객 수 보존을 확인한다.
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @Test
+    @DisplayName("주요 정보만 제거하며 고객·거래·과거 집계를 보존하고 재실행은 건너뛴다")
+    void privacyBatchPreservesRowsAndHistory() {
+        Store store = createStore("privacy-history");
+        Long storeId = store.getId();
+        Customer first = createCustomer(store, "첫 고객", "010-1111-5678");
+        first.update("첫 고객", "010-1111-5678", 7, "개인 메모", true);
+        Customer second = createCustomer(store, "둘째 고객", "010-2222-5678");
+        Customer active = createCustomer(store, "현재 고객", "010-3333-5678");
+        Long firstId = first.getId();
+        Long secondId = second.getId();
+        Long activeId = active.getId();
+        var createdAt = first.getCreatedAt();
+        var visitedAt = java.time.LocalDateTime.of(2026, 7, 1, 12, 0);
+        var visit = new com.team1.crm.loyalty.visit.Visit(first, visitedAt, 15000, 0, "음료");
+        entityManager.persist(visit);
+        entityManager.persist(new com.team1.crm.loyalty.visit.Visit(second, visitedAt, 5000, 0, "음료"));
+        entityManager.persist(new com.team1.crm.loyalty.point.PointHistory(first, visit,
+                com.team1.crm.loyalty.point.PointType.EARN, 750, visitedAt));
+        entityManager.persist(new com.team1.crm.loyalty.coupon.Coupon(first, "음료 할인", 1000,
+                java.time.LocalDate.of(2026, 12, 31)));
+        entityManager.flush();
+        // DB 정밀도에 맞춘 생성일을 비교한다.
+        entityManager.refresh(first);
+        createdAt = first.getCreatedAt();
+        var originalCreatedAt = createdAt;
+        var deletedAt = java.time.LocalDateTime.of(2026, 8, 11, 3, 0);
+        var processedAt = java.time.LocalDateTime.of(2026, 11, 11, 3, 0);
+        setDeletedAt(firstId, deletedAt);
+        setDeletedAt(secondId, deletedAt);
+
+        assertEquals(2, customerPrivacyService.removeExpiredPersonalData(processedAt));
+        Customer retained = entityManager.find(Customer.class, firstId);
+        assertAll(
+                () -> assertEquals("삭제된 고객", retained.getName()),
+                () -> assertNull(retained.getPhone()),
+                () -> assertNull(retained.getBirthMonth()),
+                () -> assertNull(retained.getMemo()),
+                () -> assertFalse(retained.isAgreeMarketing()),
+                () -> assertEquals(deletedAt, retained.getDeletedAt()),
+                () -> assertEquals(processedAt, retained.getAnonymizedAt()),
+                () -> assertEquals(originalCreatedAt, retained.getCreatedAt()),
+                () -> assertEquals(storeId, retained.getStore().getId()),
+                () -> assertNotNull(entityManager.find(Customer.class, secondId)),
+                () -> assertEquals("현재 고객", entityManager.find(Customer.class, activeId).getName())
+        );
+        assertEquals(2L, entityManager.createQuery("select count(v) from Visit v where v.customer.store.id = :storeId", Long.class)
+                .setParameter("storeId", storeId).getSingleResult());
+        assertEquals(20000L, entityManager.createQuery("select sum(v.amount) from Visit v where v.customer.store.id = :storeId", Long.class)
+                .setParameter("storeId", storeId).getSingleResult());
+        assertEquals(2L, entityManager.createQuery("select count(distinct v.customer.id) from Visit v where v.customer.store.id = :storeId", Long.class)
+                .setParameter("storeId", storeId).getSingleResult());
+        assertEquals(1L, entityManager.createQuery("select count(p) from PointHistory p where p.customer.id = :id", Long.class)
+                .setParameter("id", firstId).getSingleResult());
+        assertEquals(1L, entityManager.createQuery("select count(c) from Coupon c where c.customer.id = :id", Long.class)
+                .setParameter("id", firstId).getSingleResult());
+        assertEquals(0, customerPrivacyService.removeExpiredPersonalData(processedAt.plusDays(1)));
+        Customer rerun = entityManager.find(Customer.class, firstId);
+        assertEquals(processedAt, rerun.getAnonymizedAt());
+        assertTrue(customerRepository.findByIdAndStore_Id(firstId, storeId).isEmpty());
+        assertFalse(customerRepository.existsByStore_IdAndPhone(storeId, "010-1111-5678"));
+        // 여러 고객의 번호가 null이어도 기존 번호를 새 고객이 다시 사용할 수 있다.
+        Customer replacement = createCustomer(store, "새 고객", "010-1111-5678");
+        entityManager.flush();
+        assertNotNull(replacement.getId());
+    }
+
+    /**
+     * 소프트 삭제가 업무 조회에서만 고객을 제외하고 실제 고객과 과거 방문 금액은 보존하는지 확인한다.
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @Test
+    @DisplayName("소프트 삭제 후 고객 조회·검색·수정은 차단하고 과거 방문·매출은 보존한다")
+    void softDeletePreservesHistoryAndHidesCustomer() {
+        Store store = createStore("soft-delete");
+        Customer customer = createCustomer(store, "삭제대상", "010-1111-5678");
+        Long storeId = store.getId();
+        Long customerId = customer.getId();
+        entityManager.persist(new com.team1.crm.loyalty.visit.Visit(
+                customer, java.time.LocalDateTime.of(2026, 10, 1, 12, 0), 15000, 0, "방문 기록"));
+        entityManager.flush();
+        entityManager.clear();
+
+        customerService.deleteCustomer(storeId, customerId);
+        entityManager.flush();
+        entityManager.clear();
+
+        Customer retained = entityManager.find(Customer.class, customerId);
+        assertNotNull(retained);
+        assertNotNull(retained.getDeletedAt());
+        assertTrue(customerRepository.findByIdAndStore_Id(customerId, storeId).isEmpty());
+        assertTrue(customerRepository.findAllByStore_IdOrderByIdAsc(storeId).isEmpty());
+        assertEquals(0L, customerRepository.countByStoreId(storeId));
+        assertTrue(customerRepository.searchCustomers(storeId, "삭제").isEmpty());
+        assertTrue(customerRepository.searchCustomers(storeId, "5678").isEmpty());
+        assertEquals(0L, customerRepository.findAllByStore_Id(storeId, PageRequest.of(0, 10)).getTotalElements());
+        assertEquals(0L, customerRepository.searchCustomerPage(storeId, "5678", PageRequest.of(0, 10)).getTotalElements());
+        assertThrows(IllegalArgumentException.class, () -> customerService.findCustomer(storeId, customerId));
+        assertThrows(IllegalArgumentException.class,
+                () -> customerService.updateCustomer(storeId, customerId, new CustomerForm()));
+        assertEquals(1L, entityManager.createQuery(
+                "select count(v) from Visit v where v.customer.store.id = :storeId", Long.class)
+                .setParameter("storeId", storeId).getSingleResult());
+        assertEquals(15000L, entityManager.createQuery(
+                "select sum(v.amount) from Visit v where v.customer.store.id = :storeId", Long.class)
+                .setParameter("storeId", storeId).getSingleResult());
+        assertTrue(customerRepository.existsByStore_IdAndPhone(storeId, "010-1111-5678"));
+    }
+
+    /** 다른 매장 고객을 삭제할 수 없고 정상 고객은 계속 조회되는지 확인한다.
+     * 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("다른 매장의 고객 삭제를 거부하고 원본을 보존한다")
+    void cannotSoftDeleteOtherStoresCustomer() {
+        Store own = createStore("own-store");
+        Store other = createStore("other-store");
+        Customer customer = createCustomer(other, "다른 매장 고객", "010-1111-5678");
+        Long customerId = customer.getId();
+        assertThrows(IllegalArgumentException.class, () -> customerService.deleteCustomer(own.getId(), customerId));
+        entityManager.clear();
+        assertNull(entityManager.find(Customer.class, customerId).getDeletedAt());
+    }
 
     @Autowired
     private CustomerRepository customerRepository;

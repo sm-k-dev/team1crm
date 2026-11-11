@@ -35,6 +35,39 @@ public class CustomerViewController {
     private final StoreService storeService;
 
     /**
+     * 로그인 회원의 매장 소유권을 확인한 후 고객을 소프트 삭제한다.
+     *
+     * @param member 로그인한 회원
+     * @param customerId 삭제할 고객 ID
+     * @param storeId 고객이 속한 매장 ID
+     * @return 선택 매장의 고객 목록 주소
+     * 작성자: 김순민
+     * 작성일: 2026-11-11
+     */
+    @PostMapping("/customers/{customerId}/delete")
+    public String delete(
+            @LoginMember Member member,
+            @PathVariable("customerId") Long customerId,
+            @RequestParam("storeId") Long storeId
+    ) {
+        if (member == null) {
+            return "redirect:/login";
+        }
+        Store store;
+        try {
+            store = storeService.findOwnedStore(member.getId(), storeId);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근 가능한 매장이 아닙니다.");
+        }
+        try {
+            customerService.deleteCustomer(store.getId(), customerId);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 매장의 고객을 찾을 수 없습니다.");
+        }
+        return "redirect:/customers?storeId=" + store.getId();
+    }
+
+    /**
      * 로그인한 회원이 선택한 매장의 고객 목록과 등록 Form을 표시한다.
      * 매장을 지정하지 않으면 소유 매장 목록의 첫 번째 매장으로 이동한다.
      *

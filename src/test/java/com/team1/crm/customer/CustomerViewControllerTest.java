@@ -44,6 +44,25 @@ class CustomerViewControllerTest {
     private Customer customer;
     private LocalValidatorFactoryBean validator;
 
+    /** 삭제 요청은 소유 매장의 고객을 소프트 삭제한 후 목록으로 이동한다.
+     * 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("고객 삭제 성공 시 선택 매장 목록으로 이동한다")
+    void deleteRedirectsToList() throws Exception {
+        mvc.perform(request("delete")).andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/customers?storeId=900101"));
+        verify(customers).deleteCustomer(900101L, 100L);
+    }
+
+    /** 없거나 이미 삭제된 고객은 404로 처리한다.
+     * 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("고객 삭제 대상이 없으면 404를 반환한다")
+    void missingDeleteReturns404() throws Exception {
+        doThrow(new IllegalArgumentException("고객 없음")).when(customers).deleteCustomer(900101L, 100L);
+        mvc.perform(request("delete")).andExpect(status().isNotFound());
+    }
+
     /** 테스트별 객체·검증 도구·로그인 회원 주입을 준비한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @BeforeEach
     void setUp() {
@@ -114,6 +133,7 @@ class CustomerViewControllerTest {
             case "detail" -> get("/customers/100");
             case "edit" -> get("/customers/100/edit");
             case "update" -> post("/customers/100/edit");
+            case "delete" -> post("/customers/100/delete");
             default -> throw new IllegalArgumentException("잘못된 테스트 요청");
         };
         return builder.param("storeId", "900101")
@@ -124,7 +144,7 @@ class CustomerViewControllerTest {
 
     /** 비로그인은 모든 고객 화면 처리에서 로그인으로 이동한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @ParameterizedTest
-    @ValueSource(strings = {"list", "register", "detail", "edit", "update"})
+    @ValueSource(strings = {"list", "register", "detail", "edit", "update", "delete"})
     @DisplayName("로그인 회원이 없으면 로그인 화면으로 이동하고 Service를 호출하지 않는다")
     void anonymousRedirectsToLogin(String action) throws Exception {
         member = null;
@@ -135,7 +155,7 @@ class CustomerViewControllerTest {
 
     /** 모든 경로에서 소유하지 않은 매장은 고객 처리 전에 차단한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @ParameterizedTest
-    @ValueSource(strings = {"list", "register", "detail", "edit", "update"})
+    @ValueSource(strings = {"list", "register", "detail", "edit", "update", "delete"})
     @DisplayName("다른 사람 매장은 403이며 고객 Service를 호출하지 않는다")
     void rejectsUnownedStore(String action) throws Exception {
         when(stores.findOwnedStore(10L, 900101L)).thenThrow(new IllegalArgumentException("소유 매장 아님"));

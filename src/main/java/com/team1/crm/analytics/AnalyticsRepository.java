@@ -16,6 +16,7 @@ import java.util.List;
  * 변경노트 2026-11-06 한상희: 대시보드에 필요한 고객별 합계와 요일별 방문 건수 조회 추가.
  * 변경노트 2026-11-09 한상희: 시간대별 방문과 월별 매출·방문 고객 조회 추가.
  * 변경노트 2026-11-10 한상희: 매장과 기간을 제한한 고객별 RFM 점수 조회 추가.
+ * 변경노트 2026-11-11 김순민: 현재 고객 대상 RFM에서 소프트 삭제 고객 제외. 과거 통계는 유지.
  */
 public interface AnalyticsRepository extends Repository<Visit, Long> {
     /**
@@ -134,6 +135,7 @@ public interface AnalyticsRepository extends Repository<Visit, Long> {
                 from visit v
                 join customer c on c.id = v.customer_id
                 where c.store_id = :storeId
+                  and c.deleted_at is null
                   and v.visited_at >= :start
                   and v.visited_at < :end
                 group by c.id, c.name

@@ -124,7 +124,12 @@
        storeId=${selectedStore.id})}">
         <i class="bi bi-pencil"></i> 고객 수정
     </a>
-<button class="btn btn-outline-danger" onclick="deleteCustomer()" type="button"><i class="bi bi-trash"></i> 고객 삭제</button>
+<!-- 고객과 과거 이력은 보존하고 일반 고객 관리에서 제외한다. 작성자: 김순민 / 작성일: 2026-11-11 -->
+<form th:action="@{/customers/{customerId}/delete(customerId=${customer.id},storeId=${selectedStore.id})}"
+      method="post" class="m-0"
+      onsubmit="return confirm('이 고객을 삭제하시겠습니까? 고객 관리 화면에서 제외되며 과거 방문·매출 기록은 유지됩니다.');">
+    <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i> 고객 삭제</button>
+</form>
 </div>
 </main>
 <footer class="saas-footer">
