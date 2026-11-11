@@ -32,6 +32,7 @@ public class HomeController {
 
     // 로그인한 회원의 매장 목록을 조회하는 서비스
     private final StoreService storeService;
+    private final HomeSummaryService homeSummaryService;
 
     /**
      * + CRM 홈페이지 출력
@@ -47,6 +48,7 @@ public class HomeController {
     @GetMapping({"/", "/index.html"})
     public String home(
             Authentication authentication,
+            @org.springframework.web.bind.annotation.RequestParam(name = "storeId", required = false) Long storeId,
             Model model
     ) {
 
@@ -58,6 +60,10 @@ public class HomeController {
             return "home/index";
         }
 
+        // 관리자 이동 및 선택 매장 집계 연결. 작성자: 김순민 / 작성일: 2026-11-11
+        if (authentication.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()))) {
+            return "redirect:/admin/dashboard";
+        }
         // 2. 로그인한 회원의 이메일 가져오기
         String email;
 
@@ -83,9 +89,18 @@ public class HomeController {
         // 5. Thymeleaf로 매장 목록 전달
         model.addAttribute("stores", stores);
 
-        // 6. 첫 번째 매장을 기본 선택
+        // 요청한 매장은 소유 목록에서만 허용한다. 작성자: 김순민 / 작성일: 2026-11-11
+        if (storeId != null && stores.stream().noneMatch(store -> store.getId().equals(storeId))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "접근 가능한 매장이 아닙니다.");
+        }
+        // 6. 지정한 소유 매장을 선택하고 생략하면 첫 매장을 선택한다.
         if (!stores.isEmpty()) {
-            model.addAttribute("selectedStore", stores.get(0));
+            Store selected = storeId == null ? stores.get(0) : stores.stream()
+                    .filter(store -> store.getId().equals(storeId)).findFirst().orElseThrow();
+            model.addAttribute("selectedStore", selected);
+            model.addAttribute("summary", homeSummaryService.summarize(selected.getId(),
+                    java.time.LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))));
         }
 
         // 7. 홈 화면 출력

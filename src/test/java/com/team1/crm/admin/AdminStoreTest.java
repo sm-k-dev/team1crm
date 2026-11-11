@@ -37,10 +37,56 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.jpa.hibernate.ddl-auto=create-drop", "spring.sql.init.mode=never"
 })
 @ActiveProfiles("test")
-@Import({AdminStoreService.class, AdminOwnerService.class, com.team1.crm.auth.security.PasswordEncoderConfig.class})
+@Import({AdminStoreService.class, AdminDashboardService.class, AdminOwnerService.class, com.team1.crm.auth.security.PasswordEncoderConfig.class})
 class AdminStoreTest {
     @Autowired EntityManager em;
     @Autowired AdminStoreService service;
+    @Autowired AdminDashboardService dashboardService;
+
+    /** 빈 현황과 실제 화면 출력도 머지 후 유지되는지 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("운영 대시보드는 빈 DB와 최근 6개월의 연도 경계를 처리한다")
+    void dashboardEmptyAfterMerge() {
+        var stats = dashboardService.summarize(java.time.YearMonth.of(2026, 1));
+        assertEquals(0.0, stats.connectionRate());
+        assertEquals(6, stats.months().size());
+        assertEquals("2025-08", stats.months().getFirst().label());
+        var model = new ExtendedModelMap(); model.addAttribute("stats", stats);
+        assertTrue(render(model, "admin/dashboard").contains("미연결 사장님이 없습니다."));
+    }
+
+    /** 관리자 계정과 중복 매장을 분리해 집계한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("운영 대시보드는 다중 매장 사장님을 중복 집계하지 않고 월별 값을 표시한다")
+    void dashboardCountsAfterMerge() {
+        var owner = new Member("dash@test.invalid", "unused", "연결", Role.USER); em.persist(owner);
+        em.persist(new Member("dash-empty@test.invalid", "unused", "미연결", Role.USER));
+        em.persist(admin());
+        em.persist(new Store(owner, "하나", "카페", "서울", 5));
+        em.persist(new Store(owner, "둘", "카페", "서울", 5)); em.flush();
+        em.createNativeQuery("update member set created_at = '2026-01-01 00:00:00' where role = 'USER'").executeUpdate();
+        em.createNativeQuery("update store set created_at = '2025-12-31 23:59:59'").executeUpdate();
+        var stats = dashboardService.summarize(java.time.YearMonth.of(2026, 1));
+        assertEquals(2, stats.ownerCount()); assertEquals(2, stats.storeCount());
+        assertEquals(1, stats.linkedOwnerCount()); assertEquals(1, stats.unlinkedOwnerCount());
+        assertEquals(50.0, stats.connectionRate());
+        assertEquals(2, stats.newOwners()); assertEquals(0, stats.newStores());
+        assertEquals(-2, stats.storeChange());
+        var model = new ExtendedModelMap(); model.addAttribute("stats", stats);
+        assertTrue(render(model, "admin/dashboard").contains("50.0%"));
+    }
+
+    /** 관리자 홈 이동과 집계 접근을 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("운영 대시보드는 관리자만 허용하고 관리자 홈은 리다이렉트한다")
+    void dashboardAuthorityAfterMerge() {
+        var controller = new AdminViewController(service, dashboardService);
+        assertEquals("redirect:/admin/dashboard", controller.index(admin()));
+        assertEquals("redirect:/login", controller.dashboard(null, new ExtendedModelMap()));
+        var user = new Member("dash-user@test.invalid", "unused", "사장님", Role.USER);
+        assertEquals(403, assertThrows(ResponseStatusException.class,
+                () -> controller.dashboard(user, new ExtendedModelMap())).getStatusCode().value());
+    }
     @Autowired AdminOwnerService ownerService;
     @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
 
@@ -402,7 +448,7 @@ class AdminStoreTest {
     }
 
     /** 실제 조회 서비스를 연결한다. 작성자: 김순민 / 작성일: 2026-11-11 */
-    private AdminViewController controller() { return new AdminViewController(service); }
+    private AdminViewController controller() { return new AdminViewController(service, org.mockito.Mockito.mock(AdminDashboardService.class)); }
 
     /** 관리자 테스트 계정을 만든다. 작성자: 김순민 / 작성일: 2026-11-11 */
     private Member admin() { return new Member("admin@test.invalid", "unused", "관리자", Role.ADMIN); }
