@@ -24,22 +24,34 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequiredArgsConstructor
 public class AdminViewController {
     private final AdminStoreService adminStoreService;
+    private final AdminDashboardService adminDashboardService;
 
     /** 관리자 첫 화면을 반환한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @GetMapping("/admin")
-    public String index() {
-        return "admin/index";
+    public String index(@LoginMember Member member) {
+        if (!checkAdmin(member)) return "redirect:/login";
+        return "redirect:/admin/dashboard";
     }
 
     /** 운영 현황 화면을 반환한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @GetMapping("/admin/dashboard")
-    public String dashboard() {
+    public String dashboard(@LoginMember Member member, Model model) {
+        if (!checkAdmin(member)) return "redirect:/login";
+        model.addAttribute("stats", adminDashboardService.summarize(
+                java.time.YearMonth.now(java.time.ZoneId.of("Asia/Seoul"))));
         return "admin/dashboard";
     }
 
-    /** 사장님 관리 화면을 반환한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    /** 사장님별 소유 매장과 미연결 계정 현황을 표시한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @GetMapping("/admin/owners")
-    public String owners() {
+    public String owners(@LoginMember Member member, Model model) {
+        if (!checkAdmin(member)) return "redirect:/login";
+        model.addAttribute("ownerForm", new AdminOwnerForm());
+        var owners = adminStoreService.findOwnerRows();
+        model.addAttribute("owners", owners);
+        model.addAttribute("ownerCount", owners.size());
+        model.addAttribute("linkedOwnerCount", owners.stream().filter(owner -> !owner.stores().isEmpty()).count());
+        model.addAttribute("unlinkedOwnerCount", owners.stream().filter(owner -> owner.stores().isEmpty()).count());
         return "admin/owners";
     }
 

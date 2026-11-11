@@ -8,9 +8,66 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
 
 <link rel="stylesheet" href="/css/modern-saas.css" th:href="@{/css/modern-saas.css}"/>
-</head><body><nav th:replace="~{fragments/navigation :: navigation}"></nav><main class="container py-4"><h1 class="h3">사장님/매장 관리</h1><p class="text-secondary">사장님 계정 등록 및 매장 연결 현황을 관리합니다.</p><div class="alert alert-info"></div>
-<div class="card p-3 mb-3"><h2 class="h5">사장님 계정 등록</h2><form action="#" class="row g-2" data-demo-only="true" method="post" onsubmit="return false;"><div class="col-md-4"><input class="form-control" name="email" placeholder="이메일" required="" type="email"/></div><div class="col-md-3"><input class="form-control" name="nickname" placeholder="이름" required=""/></div><div class="col-md-3"><input class="form-control" minlength="8" name="password" placeholder="초기 비밀번호 (8자 이상)" required="" type="password"/></div><div class="col-md-2"><button class="btn btn-primary">등록</button></div></form></div>
-<div class="card p-3"><h2 class="h5">사장님 계정 · 매장 연결</h2><div class="table-responsive"><table class="table align-middle"><thead><tr><th>ID</th><th>이메일</th><th>이름 수정</th><th>연결된 매장</th><th>관리</th></tr></thead><tbody><tr><td></td><td></td><td><form action="#" data-demo-only="true" method="post" onsubmit="return false;"><input class="form-control form-control-sm" name="nickname" required=""/></form></td><td><span></span><a class="small ms-2" href="/admin/stores" th:href="@{/admin/stores}">매장 연결·변경</a></td><td><button class="btn btn-outline-primary btn-sm">수정</button> <form action="#" class="d-inline" data-demo-only="true" method="post" onsubmit="return false;"><button class="btn btn-outline-danger btn-sm">삭제 요청</button></form></td></tr></tbody></table></div></div>
+</head><body><nav th:replace="~{fragments/navigation :: navigation}"></nav><main class="container py-4">
+<h1 class="h3">사장님 계정 · 매장 연결 현황</h1>
+<p class="text-secondary">사장님 계정과 소유 매장을 확인합니다.</p>
+<!-- 사장님과 매장 연결 집계를 표시한다. 작성자: 김순민 / 작성일: 2026-11-11 -->
+<div class="row g-2 mb-3">
+  <div class="col-md-4"><div class="card p-3">전체 사장님 <strong th:text="${ownerCount}">0</strong></div></div>
+  <div class="col-md-4"><div class="card p-3">매장 보유 사장님 <strong th:text="${linkedOwnerCount}">0</strong></div></div>
+  <div class="col-md-4"><div class="card p-3">매장 미보유 사장님 <strong th:text="${unlinkedOwnerCount}">0</strong></div></div>
+</div>
+<div class="alert alert-success" th:if="${successMessage != null}" th:text="${successMessage}"></div>
+<!-- 계정 등록 오류에도 비밀번호는 화면에 재출력하지 않는다. 작성자: 김순민 / 작성일: 2026-11-11 -->
+<div class="card p-3 mb-3">
+  <h2 class="h5">사장님 계정 등록</h2>
+  <form class="row g-3" th:action="@{/admin/owners}" method="post" th:object="${ownerForm}">
+    <div class="col-md-4">
+      <label class="form-label" for="email">이메일</label>
+      <input class="form-control" id="email" type="email" th:field="*{email}" maxlength="255" autocomplete="off" required/>
+      <div class="text-danger small" th:errors="*{email}"></div>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label" for="nickname">이름</label>
+      <input class="form-control" id="nickname" th:field="*{nickname}" maxlength="255" required/>
+      <div class="text-danger small" th:errors="*{nickname}"></div>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label" for="password">초기 비밀번호</label>
+      <input class="form-control" id="password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required/>
+      <div class="form-text">8~128자로 입력해 주세요.</div>
+      <div class="text-danger small" th:errors="*{password}"></div>
+    </div>
+    <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary" type="submit">계정 등록</button></div>
+  </form>
+</div>
+<div class="card p-3">
+  <h2 class="h5">사장님 목록</h2>
+  <div class="table-responsive"><table class="table align-middle">
+    <thead><tr><th scope="col">ID</th><th scope="col">이메일</th><th scope="col">이름</th><th scope="col">매장 수</th><th scope="col">소유 매장</th><th scope="col">관리</th></tr></thead>
+    <tbody>
+      <tr th:each="owner : ${owners}">
+        <td th:text="${owner.id}"></td>
+        <td th:text="${owner.email}"></td>
+        <td th:text="${owner.nickname}"></td>
+        <td th:text="${#lists.size(owner.stores)}"></td>
+        <td>
+          <span class="text-muted" th:if="${#lists.isEmpty(owner.stores)}">연결된 매장이 없습니다.</span>
+          <ul class="list-unstyled mb-0" th:unless="${#lists.isEmpty(owner.stores)}">
+            <li th:each="store : ${owner.stores}">
+              <a th:href="@{/admin/stores/{id}/edit(id=${store.id})}" th:text="${store.name + ' (#' + store.id + ')'}"></a>
+            </li>
+          </ul>
+        </td>
+        <td><div class="d-flex gap-2 flex-wrap">
+          <a class="btn btn-outline-primary btn-sm" th:href="@{/admin/owners/{id}/edit(id=${owner.id})}">이름 수정</a>
+          <a class="btn btn-outline-primary btn-sm" th:href="@{/admin/stores}">매장 연결·변경</a>
+        </div></td>
+      </tr>
+      <tr th:if="${#lists.isEmpty(owners)}"><td colspan="6" class="text-center text-muted">등록된 사장님 계정이 없습니다.</td></tr>
+    </tbody>
+  </table></div>
+</div>
 </main><footer class="saas-footer">
 <div class="text-center">
 <p class="mb-1"><i class="bi bi-person-hearts"></i> 단골 고객 관리</p>
