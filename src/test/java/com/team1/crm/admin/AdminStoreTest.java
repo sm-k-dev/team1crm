@@ -37,10 +37,172 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.jpa.hibernate.ddl-auto=create-drop", "spring.sql.init.mode=never"
 })
 @ActiveProfiles("test")
-@Import(AdminStoreService.class)
+@Import({AdminStoreService.class, AdminOwnerService.class, com.team1.crm.auth.security.PasswordEncoderConfig.class})
 class AdminStoreTest {
     @Autowired EntityManager em;
     @Autowired AdminStoreService service;
+    @Autowired AdminOwnerService ownerService;
+    @Autowired org.springframework.security.crypto.password.PasswordEncoder encoder;
+
+    /** 새 계정은 USER로 저장하고 기존 인증 인코더와 호환되어야 한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("관리자 등록 계정은 USER이고 비밀번호가 Argon2로 해시된다")
+    void createsOwnerWithEncodedPassword() {
+        var form = ownerForm();
+        Long id = ownerService.create(form);
+        em.flush(); em.clear();
+        Member member = em.find(Member.class, id);
+        assertEquals(Role.USER, member.getRole());
+        assertEquals("new-owner@test.invalid", member.getEmail());
+        assertNotEquals(form.getPassword(), member.getPassword());
+        assertTrue(member.getPassword().startsWith("$argon2"));
+        assertTrue(encoder.matches(form.getPassword(), member.getPassword()));
+        assertTrue(service.findOwnerRows().getFirst().stores().isEmpty());
+    }
+
+    /** 기존 관리자 이메일과 사장님 이름도 중복 검사한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("기존 계정과 이메일·이름이 중복되면 해당 필드를 거절한다")
+    void checksOwnerDuplicates() {
+        em.persist(new Member("new-owner@test.invalid", "unused", "다른 이름", Role.ADMIN));
+        assertEquals("email", ownerService.duplicateField(ownerForm()));
+        var form = ownerForm(); form.setEmail("other@test.invalid"); form.setNickname("다른 이름");
+        assertEquals("nickname", ownerService.duplicateField(form));
+        assertEquals("email", assertThrows(IllegalArgumentException.class, () -> ownerService.create(ownerForm())).getMessage());
+    }
+
+    /** 중복 오류 화면에서 일반 입력은 유지하고 비밀번호는 제외한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("중복 이메일 오류는 목록을 다시 보여주며 비밀번호를 재출력하지 않는다")
+    void duplicateOwnerReturnsFormWithoutPassword() {
+        em.persist(new Member("new-owner@test.invalid", "unused", "기존 이름", Role.USER));
+        var form = ownerForm();
+        var model = new ExtendedModelMap(); model.addAttribute("ownerForm", form);
+        var errors = new BeanPropertyBindingResult(form, "ownerForm");
+        model.addAttribute("org.springframework.validation.BindingResult.ownerForm", errors);
+        assertEquals("admin/owners", new AdminOwnerController(ownerService, service).create(admin(), form, errors,
+                model, new RedirectAttributesModelMap()));
+        assertTrue(errors.hasFieldErrors("email"));
+        assertEquals("new-owner@test.invalid", form.getEmail());
+        assertNull(form.getPassword());
+        String html = render(model, "admin/owners");
+        assertTrue(html.contains("이미 가입된 이메일입니다."));
+        assertFalse(html.contains("Owner-test-123!"));
+    }
+
+    /** 권한 확인 후 정상 등록은 PRG로 이동한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("사장님 등록 요청은 미로그인 이동·비관리자 403·관리자 성공을 구분한다")
+    void protectsOwnerCreation() {
+        var controller = new AdminOwnerController(ownerService, service);
+        var form = ownerForm(); var errors = new BeanPropertyBindingResult(form, "ownerForm");
+        assertEquals("redirect:/login", controller.create(null, form, errors, new ExtendedModelMap(), new RedirectAttributesModelMap()));
+        var user = new Member("user@test.invalid", "unused", "사장님", Role.USER);
+        assertEquals(403, assertThrows(ResponseStatusException.class, () -> controller.create(user, form, errors,
+                new ExtendedModelMap(), new RedirectAttributesModelMap())).getStatusCode().value());
+        assertEquals("redirect:/admin/owners", controller.create(admin(), form, errors,
+                new ExtendedModelMap(), new RedirectAttributesModelMap()));
+    }
+
+    /** 필수값·형식·최소 비밀번호 길이를 검사한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("이메일 형식·공백 이름·짧은 비밀번호 오류는 저장 없이 표시한다")
+    void rejectsInvalidOwnerForm() {
+        var form = ownerForm(); form.setEmail("invalid"); form.setNickname(" "); form.setPassword("123");
+        var errors = new BeanPropertyBindingResult(form, "ownerForm");
+        try (var validator = new LocalValidatorFactoryBean()) {
+            validator.afterPropertiesSet(); validator.validate(form, errors);
+        }
+        assertTrue(errors.hasFieldErrors("email"));
+        assertTrue(errors.hasFieldErrors("nickname"));
+        assertTrue(errors.hasFieldErrors("password"));
+        var model = new ExtendedModelMap(); model.addAttribute("ownerForm", form);
+        assertEquals("admin/owners", new AdminOwnerController(ownerService, service).create(admin(), form, errors,
+                model, new RedirectAttributesModelMap()));
+        assertTrue(service.findOwnerRows().isEmpty());
+    }
+
+    /** 이름 수정이 인증 정보와 소유 관계를 보존하는지 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("사장님 이름 수정은 DB에 반영되고 이메일·비밀번호·역할·매장을 보존한다")
+    void updatesOwnerNameOnly() {
+        Long id = ownerService.create(ownerForm());
+        Member before = em.find(Member.class, id);
+        String password = before.getPassword();
+        em.persist(new Store(before, "이름 수정 보존 매장", "카페", "서울", 5));
+        var form = new AdminOwnerEditForm(); form.setNickname(" 변경된 사장님 ");
+        ownerService.updateNickname(id, form);
+        em.flush(); em.clear();
+        Member after = em.find(Member.class, id);
+        assertEquals("변경된 사장님", after.getNickname());
+        assertEquals("new-owner@test.invalid", after.getEmail());
+        assertEquals(password, after.getPassword());
+        assertEquals(Role.USER, after.getRole());
+        assertEquals(id, service.findStores().getFirst().ownerId());
+        form.setNickname(after.getNickname());
+        assertDoesNotThrow(() -> ownerService.updateNickname(id, form));
+    }
+
+    /** 중복 수정 오류가 기존 저장값을 바꾸지 않는지 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("이름 수정 중복 오류는 입력값과 오류를 표시하고 기존 이름을 보존한다")
+    void duplicateOwnerEditKeepsOriginal() {
+        Long id = ownerService.create(ownerForm());
+        em.persist(new Member("other-name@test.invalid", "unused", "사용 중 이름", Role.USER)); em.flush();
+        var form = new AdminOwnerEditForm(); form.setNickname("사용 중 이름");
+        var model = new ExtendedModelMap(); model.addAttribute("ownerEditForm", form);
+        var errors = new BeanPropertyBindingResult(form, "ownerEditForm");
+        model.addAttribute("org.springframework.validation.BindingResult.ownerEditForm", errors);
+        assertEquals("admin/owner-edit", new AdminOwnerController(ownerService, service).update(admin(), id, form,
+                errors, model, new RedirectAttributesModelMap()));
+        assertTrue(errors.hasFieldErrors("nickname"));
+        assertEquals("신규 사장님", ownerService.findOwner(id).nickname());
+        assertTrue(render(model, "admin/owner-edit").contains("이미 사용 중인 이름입니다."));
+    }
+
+    /** 조회 및 저장의 대상·권한 검사를 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("이름 수정은 없는 계정·관리자 대상 404와 비관리자 요청 403을 적용한다")
+    void protectsOwnerEdit() {
+        var administrator = admin(); em.persist(administrator);
+        var controller = new AdminOwnerController(ownerService, service);
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> controller.edit(admin(), Long.MAX_VALUE, new ExtendedModelMap())).getStatusCode().value());
+        assertEquals(404, assertThrows(ResponseStatusException.class,
+                () -> controller.edit(admin(), administrator.getId(), new ExtendedModelMap())).getStatusCode().value());
+        Long id = ownerService.create(ownerForm());
+        var form = new AdminOwnerEditForm(); form.setNickname("변경 이름");
+        var owner = em.find(Member.class, id);
+        assertEquals(403, assertThrows(ResponseStatusException.class, () -> controller.update(owner, id, form,
+                new BeanPropertyBindingResult(form, "ownerEditForm"), new ExtendedModelMap(),
+                new RedirectAttributesModelMap())).getStatusCode().value());
+        assertEquals("redirect:/login", controller.edit(null, id, new ExtendedModelMap()));
+        var model = new ExtendedModelMap();
+        assertEquals("admin/owner-edit", controller.edit(admin(), id, model));
+        assertTrue(render(model, "admin/owner-edit").contains("신규 사장님"));
+        assertEquals("redirect:/admin/owners", controller.update(admin(), id, form,
+                new BeanPropertyBindingResult(form, "ownerEditForm"), new ExtendedModelMap(), new RedirectAttributesModelMap()));
+    }
+
+    /** 공백 이름은 기존 데이터를 바꾸지 않는다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("이름 수정의 공백·길이 초과는 검증 오류로 처리한다")
+    void validatesOwnerEdit() {
+        try (var validator = new LocalValidatorFactoryBean()) {
+            validator.afterPropertiesSet();
+            for (String name : java.util.List.of(" ", "가".repeat(256))) {
+                var form = new AdminOwnerEditForm(); form.setNickname(name);
+                assertFalse(validator.validate(form).isEmpty());
+            }
+        }
+    }
+
+    /** 정상 계정 등록 입력을 준비한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    private AdminOwnerForm ownerForm() {
+        var form = new AdminOwnerForm();
+        form.setEmail("new-owner@test.invalid"); form.setNickname("신규 사장님"); form.setPassword("Owner-test-123!");
+        return form;
+    }
 
     /** 여러 소유자의 매장과 중복 없는 계정 수를 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @Test
@@ -185,6 +347,53 @@ class AdminStoreTest {
                 () -> controller().edit(admin(), Long.MAX_VALUE, new ExtendedModelMap())).getStatusCode().value());
     }
 
+    /** 미연결 계정과 다중 매장을 포함한 조회·출력을 검증한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("사장님 목록은 관리자 제외·매장 없는 계정 포함·다중 매장을 표시한다")
+    void listsOwnersWithAndWithoutStores() {
+        var first = new Member("linked@test.invalid", "secret-not-for-view", "사장님 <테스트>", Role.USER);
+        var second = new Member("unlinked@test.invalid", "unused", "미연결 사장님", Role.USER);
+        em.persist(first); em.persist(second); em.persist(admin());
+        em.persist(new Store(first, "첫 매장", "카페", "서울", 5));
+        em.persist(new Store(first, "둘째 매장", "카페", "서울", 5));
+        em.flush(); em.clear();
+        var model = new ExtendedModelMap();
+        assertEquals("admin/owners", controller().owners(admin(), model));
+        assertEquals(2, model.get("ownerCount"));
+        assertEquals(1L, model.get("linkedOwnerCount"));
+        assertEquals(1L, model.get("unlinkedOwnerCount"));
+        var owners = service.findOwnerRows();
+        assertEquals(2, owners.getFirst().stores().size());
+        assertTrue(owners.getLast().stores().isEmpty());
+        String html = render(model, "admin/owners");
+        assertTrue(html.contains("사장님 &lt;테스트&gt;"));
+        assertTrue(html.contains("첫 매장"));
+        assertTrue(html.contains("둘째 매장"));
+        assertTrue(html.contains("연결된 매장이 없습니다."));
+        assertFalse(html.contains("admin@test.invalid"));
+        assertFalse(html.contains("secret-not-for-view"));
+    }
+
+    /** 등록된 사장님이 없을 때도 안내 화면을 반환한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("사장님 계정이 없으면 집계 0과 빈 목록 안내를 표시한다")
+    void rendersEmptyOwners() {
+        var model = new ExtendedModelMap();
+        controller().owners(admin(), model);
+        assertEquals(0, model.get("ownerCount"));
+        assertTrue(render(model, "admin/owners").contains("등록된 사장님 계정이 없습니다."));
+    }
+
+    /** 사장님 계정 정보의 관리자 전용 접근을 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("사장님 목록은 미로그인 이동과 비관리자 403을 적용한다")
+    void protectsOwnerList() {
+        assertEquals("redirect:/login", controller().owners(null, new ExtendedModelMap()));
+        var member = new Member("owner@test.invalid", "unused", "사장님", Role.USER);
+        assertEquals(403, assertThrows(ResponseStatusException.class,
+                () -> controller().owners(member, new ExtendedModelMap())).getStatusCode().value());
+    }
+
     /** 기본 정상 입력을 생성한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     private AdminStoreForm form(Long ownerId) {
         var form = new AdminStoreForm();
@@ -200,6 +409,11 @@ class AdminStoreTest {
 
     /** 실제 화면 템플릿의 필드 연결과 출력 처리를 검증한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     private String render(ExtendedModelMap model) {
+        return render(model, "admin/stores");
+    }
+
+    /** 지정한 관리자 화면을 실제 엔진으로 처리한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    private String render(ExtendedModelMap model, String template) {
         var resolver = new ClassLoaderTemplateResolver();
         resolver.setPrefix("templates/");
         resolver.setSuffix(".html");
@@ -220,7 +434,7 @@ class AdminStoreTest {
         context.setVariable("loginMember", admin());
         var requestContext = new org.springframework.web.servlet.support.RequestContext(request, response, servlet, model);
         context.setVariable("thymeleafRequestContext", new org.thymeleaf.spring6.context.webmvc.SpringWebMvcThymeleafRequestContext(requestContext, request));
-        try { return engine.process("admin/stores", context); }
+        try { return engine.process(template, context); }
         finally { appContext.close(); }
     }
 }
