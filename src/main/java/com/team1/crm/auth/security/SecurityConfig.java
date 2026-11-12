@@ -58,6 +58,7 @@ public class SecurityConfig {
                                 "/login",
                                 "/signup",
                                 "/api/members/signup",
+                                "/api/members/check-email",
                                 "/css/**",
                                 "/js/**",
                                 "/images/**",

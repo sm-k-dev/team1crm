@@ -64,11 +64,25 @@ public class StoreService {
             throw new IllegalArgumentException("적립률은 0~20% 사이여야 합니다.");
         }
 
-        // 같은 사장님의 영업 매장 이름 중복을 확인한다. 작성자: 김순민 / 작성일: 2026-11-12
-        if (storeRepository.existsByOwner_IdAndNameAndClosedAtIsNullAndIdNot(member.getId(), name.strip(), 0L)) {
-            throw new IllegalArgumentException("내 다른 영업 매장에서 사용 중인 이름입니다.");
+        // 4. 매장 이름과 주소의 앞뒤 공백 제거
+        String trimmedName = name.trim();
+        String trimmedAddress =
+                address == null ? null : address.trim();
+
+        // 5. 동일 소유자의 매장 중복 등록 검사
+        if (storeRepository.existsByOwner_IdAndNameAndAddress(
+                member.getId(),
+                trimmedName,
+                trimmedAddress
+        )) {
+            throw new IllegalArgumentException(
+                    "이미 등록된 매장입니다."
+            );
         }
-        // 4. 검증된 회원 정보와 매장 정보를 이용하여 Store 객체 생성
+        //      기존     ->     변경
+        // name.trim() ->	trimmedName
+        // address ->	trimmedAddress            이름과 주소값의 공백을 날려 검사 -> 글자로 중복 판단
+        // 6. 검증된 회원 정보와 매장 정보를 이용하여 Store 객체 생성
         Store store = new Store(
                 member, // 매장 소유 회원
                 name.trim(), // 매장 이름의 앞뒤 공백 제거
@@ -126,13 +140,11 @@ public class StoreService {
             throw new IllegalArgumentException("매장 정보를 확인해 주세요.");
         }
 
-        Store store = storeRepository.findByIdAndOwner_Id(storeId, memberId)
+        return storeRepository.findByIdAndOwner_Id(storeId, memberId)
                 .orElseThrow(
                         () -> new IllegalArgumentException(
                                 "접근 가능한 매장을 찾을 수 없습니다."
                         )
                 );
-        store.requireOpen();
-        return store;
     }
 }
