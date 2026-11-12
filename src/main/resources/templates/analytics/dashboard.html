@@ -85,8 +85,9 @@
 <div class="card">
 <div class="card-header fw-bold">고객 등급</div>
 <div class="card-body">
-<p class="small text-muted mb-0" th:if="${rfm == null}">매장을 등록하면 고객 등급이 표시됩니다.</p>
-<p class="small text-muted mb-0" th:if="${rfm != null and rfm.rows().isEmpty()}">선택한 월에 방문 기록이 없습니다.</p>
+<p class="small text-muted mb-0" th:if="${rfm == null and (selectedStore == null or !selectedStore.closed)}">매장을 등록하면 고객 등급이 표시됩니다.</p>
+<p class="small text-muted mb-0" th:if="${selectedStore != null and selectedStore.closed}">폐업 매장은 고객 등급 분석을 제공하지 않습니다.</p>
+<p class="small text-muted mb-0" th:if="${rfm != null and rfm.rows().isEmpty() and (selectedStore == null or !selectedStore.closed)}">선택한 월에 등급 분석 대상 고객이 없습니다.</p>
 <div th:if="${rfm != null and !rfm.rows().isEmpty()}">
 <div class="position-relative mx-auto" style="max-width: 380px;">
 <canvas id="gradeChart" aria-hidden="true" hidden></canvas>
@@ -157,6 +158,7 @@
 </div>
 </div>
 <div class="card mb-4 border-primary"><div class="card-body">
+<div class="alert alert-secondary" th:if="${selectedStore != null and selectedStore.closed}">폐업 매장의 과거 통계입니다. 신규 거래 및 AI 마케팅 문구 생성은 제공하지 않습니다.</div>
 <h5><i class="bi bi-robot"></i> AI 재방문 문구</h5>
 <p class="small text-muted">AI는 매장 업종과 고객 등급·인원수를 참고합니다. 고객 이름과 전화번호는 전송하지 않습니다. 문자는 수신 동의 고객에게만 보내세요. (무료 AI 모델 · 1인 하루 5회)</p>
 <!--/*
@@ -173,7 +175,7 @@
 <option th:each="grade : ${rfm.gradeCounts()}" th:if="${grade.count() > 0}"
         th:value="${grade.label()}" th:text="|${grade.label()} (${grade.count()}명)|"></option>
 </select>
-<button class="btn btn-outline-primary btn-sm" type="submit">문구 생성</button>
+<button class="btn btn-outline-primary btn-sm" type="submit" th:disabled="${selectedStore != null and selectedStore.closed}">문구 생성</button>
 </form>
 <p class="small text-muted" th:if="${rfm == null or rfm.rows().isEmpty()}">선택한 매장과 월에 방문 고객이 있으면 문구를 만들 수 있습니다.</p>
 <div class="small text-muted" id="aiMsg" role="status"></div>
@@ -225,8 +227,9 @@
 </td>
 </tr>
 </th:block>
-<tr th:if="${rfm == null}"><td class="text-center text-muted" colspan="8">매장을 등록하면 고객 등급이 표시됩니다.</td></tr>
-<tr th:if="${rfm != null and rfm.rows().isEmpty()}"><td class="text-center text-muted" colspan="8">선택한 월에 방문 기록이 없습니다.</td></tr>
+<tr th:if="${selectedStore != null and selectedStore.closed}"><td class="text-center text-muted" colspan="8">폐업 매장은 고객 등급 분석을 제공하지 않습니다.</td></tr>
+<tr th:if="${rfm == null and (selectedStore == null or !selectedStore.closed)}"><td class="text-center text-muted" colspan="8">매장을 등록하면 고객 등급이 표시됩니다.</td></tr>
+<tr th:if="${rfm != null and rfm.rows().isEmpty() and (selectedStore == null or !selectedStore.closed)}"><td class="text-center text-muted" colspan="8">선택한 월에 등급 분석 대상 고객이 없습니다.</td></tr>
 </tbody>
 </table></div></div>
 <template id="rfmRankCrown">

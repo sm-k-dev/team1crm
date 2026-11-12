@@ -14,6 +14,8 @@ import java.util.Optional;
 
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
+    /** 자기 계정을 제외하고 이름 중복을 확인한다. 작성자: 김순민 / 작성일: 2026-11-12 */
+    boolean existsByNicknameAndIdNot(String nickname, Long id);
 
     // 이메일로 회원 정보를 조회하는 쿼리 메소드 (로그인 및 회원 조회용)
     Optional<Member> findByEmail(String email);

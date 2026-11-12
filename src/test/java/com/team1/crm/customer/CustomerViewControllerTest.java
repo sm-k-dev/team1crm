@@ -196,12 +196,25 @@ class CustomerViewControllerTest {
         verifyNoInteractions(customers);
     }
 
-    /** 소유 매장이 없는 회원의 목록 요청은 409로 처리한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    /** 소유 매장이 없으면 정상 안내 화면을 제공한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @Test
-    @DisplayName("소유 매장이 없으면 409를 반환한다")
-    void noStoresReturns409() throws Exception {
+    @DisplayName("소유 매장이 없으면 오류 대신 연결 안내를 표시한다")
+    void noStoresReturnsGuidance() throws Exception {
         when(stores.getMyStores("owner@test.invalid")).thenReturn(List.of());
-        mvc.perform(request("list")).andExpect(status().isConflict());
+        mvc.perform(request("list")).andExpect(status().isOk())
+                .andExpect(view().name("customer/no-store")).andExpect(model().attribute("closedOnly", false));
+        verifyNoInteractions(customers);
+    }
+
+    /** 폐업만 남은 계정은 고객 업무 대신 통계를 안내한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @Test
+    @DisplayName("소유 매장이 모두 폐업이면 과거 통계 안내 화면을 표시한다")
+    void closedStoresShowReadOnlyGuidance() throws Exception {
+        when(store.isClosed()).thenReturn(true);
+        mvc.perform(request("list")).andExpect(status().isOk())
+                .andExpect(view().name("customer/no-store"))
+                .andExpect(model().attribute("closedOnly", true))
+                .andExpect(model().attribute("closedStoreId", 900101L));
         verifyNoInteractions(customers);
     }
 

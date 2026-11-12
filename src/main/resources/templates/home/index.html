@@ -5,11 +5,11 @@
       xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 
 <!--
-    + CRM 메인 대시보드 및 매장 등록 화면
+    + CRM 메인 운영 현황 화면
     역할: 로그인 여부에 따라 사용자 화면을 구분하고,
           로그인한 회원의 매장 목록과 운영 현황을 표시합니다.
-          매장 선택 및 신규 매장 등록 기능을 제공하며,
-          JavaScript Fetch API를 이용하여 매장 등록 요청을 처리합니다.
+          매장 선택 및 운영 요약을 제공하며,
+          매장 등록은 내 매장 정보 화면에서 처리합니다. 변경: 김순민 / 2026-11-12
     작성자: 황현우
     일시: 2026-11-10
 -->
@@ -29,18 +29,6 @@
     <!-- 프로젝트 공통 디자인 CSS -->
     <link rel="stylesheet" href="/css/modern-saas.css" th:href="@{/css/modern-saas.css}"/>
 
-    <!--
-        + Spring Security CSRF 토큰
-        역할: 서버에서 제공한 CSRF 토큰과 헤더 이름을 저장하여
-              JavaScript의 매장 등록 API 요청에 사용합니다.
-    -->
-    <meta name="_csrf"
-          th:if="${_csrf != null}"
-          th:content="${_csrf.token}"/>
-
-    <meta name="_csrf_header"
-          th:if="${_csrf != null}"
-          th:content="${_csrf.headerName}"/>
 </head>
 
 <body>
@@ -113,7 +101,7 @@
 
                     <option th:each="store : ${stores}"
                             th:value="${store.id}"
-                            th:text="${store.name}"
+                            th:text="${store.name + (store.closed ? ' (폐업)' : '')}"
                             th:selected="${store.id == selectedStore.id}">
                         매장 이름
                     </option>
@@ -132,7 +120,8 @@
 
                 <h2 class="mt-2">등록된 매장이 없습니다.</h2>
 
-                <p>아래에서 첫 번째 매장을 등록해 주세요.</p>
+                <p>매장 관리에서 첫 번째 매장을 등록해 주세요.</p>
+                <a class="btn btn-primary" th:if="${loginMember != null}" th:href="@{/store-settings#storeRegistration}">매장 등록하러 가기</a>
 
             </div>
 
@@ -145,6 +134,7 @@
             선택 매장의 실제 집계를 표시합니다. 재방문율은 집계 기준 확정 후 제공합니다.
             변경노트: 2026-11-11 김순민 - 홈 요약 연결.
         -->
+        <div class="alert alert-secondary" th:if="${selectedStore != null and selectedStore.closed}">폐업 매장 · 읽기 전용입니다. 과거 방문·매출 통계는 계속 조회할 수 있습니다.</div>
         <div class="row g-3">
 
             <!-- 등록 고객 수 -->
@@ -162,92 +152,13 @@
         </div>
 
         <!-- 고객 관리 및 분석 대시보드 이동 버튼 -->
-        <div class="saas-home-actions"><a class="btn btn-primary" href="/customers" th:href="${selectedStore != null} ? @{/customers(storeId=${selectedStore.id})} : @{/customers}"><i class="bi bi-people me-1"></i> 고객 관리</a><a class="btn btn-outline-primary" href="/analytics/dashboard" th:href="${selectedStore != null} ? @{/analytics/dashboard(storeId=${selectedStore.id})} : @{/analytics/dashboard}"><i class="bi bi-bar-chart-line me-1"></i> 분석 대시보드</a></div>
+        <div class="saas-home-actions"><a th:if="${selectedStore != null and !selectedStore.closed}" class="btn btn-primary" href="/customers" th:href="${selectedStore != null} ? @{/customers(storeId=${selectedStore.id})} : @{/customers}"><i class="bi bi-people me-1"></i> 고객 관리</a><a class="btn btn-outline-primary" th:href="@{/store-settings}"><i class="bi bi-shop me-1"></i> 매장 관리</a><a class="btn btn-outline-primary" href="/analytics/dashboard" th:href="${selectedStore != null} ? @{/analytics/dashboard(storeId=${selectedStore.id})} : @{/analytics/dashboard}"><i class="bi bi-bar-chart-line me-1"></i> 분석 대시보드</a></div>
 
         <!-- 분석 대시보드 기능 안내 -->
         <p class="saas-note">상세 매출 추이, RFM 고객 등급 및 AI 마케팅 문구는 분석 대시보드에서 확인할 수 있습니다.</p>
 
     </div>
 
-    <!--
-        + 신규 매장 등록 영역
-        역할: 로그인한 회원에게 매장 등록 입력 폼을 제공합니다.
-        매장 이름, 업종, 주소, 포인트 적립률을 입력받습니다.
-    -->
-    <!-- 로그인한 회원에게만 매장 등록 폼 표시 -->
-    <div sec:authorize="isAuthenticated()">
-
-        <div class="card shadow-sm">
-            <div class="card-body p-4">
-
-                <!-- 매장 등록 제목 -->
-                <h4 class="card-title">
-                    <i class="bi bi-shop-window"></i> 매장 등록
-                </h4>
-
-                <p class="text-muted small">
-                    매장을 등록하면 고객·방문·분석 기능을 쓸 수 있습니다.
-                </p>
-
-                <!-- 매장 등록 성공 및 실패 메시지 출력 영역 -->
-                <div class="alert alert-danger d-none" id="storeMsg"></div>
-
-                <!-- 매장 등록 입력 폼 -->
-                <form class="row g-2" id="storeForm">
-
-                    <!-- 매장 이름 입력 (필수, 최대 50자) -->
-                    <div class="col-md-6">
-                        <input class="form-control"
-                               id="sName"
-                               maxlength="50"
-                               placeholder="매장 이름 *"
-                               required/>
-                    </div>
-
-                    <!-- 매장 업종 입력 (최대 30자) -->
-                    <div class="col-md-6">
-                        <input class="form-control"
-                               id="sCategory"
-                               maxlength="30"
-                               placeholder="업종 (예: 카페, 한식)"/>
-                    </div>
-
-                    <!-- 매장 주소 입력 (최대 200자) -->
-                    <div class="col-md-9">
-                        <input class="form-control"
-                               id="sAddress"
-                               maxlength="200"
-                               placeholder="주소"/>
-                    </div>
-
-                    <!-- 포인트 적립률 입력 (0~20%, 기본값 5%) -->
-                    <div class="col-md-3">
-                        <div class="input-group">
-                            <input class="form-control"
-                                   id="sRate"
-                                   max="20"
-                                   min="0"
-                                   type="number"
-                                   value="5"/>
-                            <span class="input-group-text">% 적립</span>
-                        </div>
-                    </div>
-
-                    <!-- 매장 등록 요청 버튼 -->
-                    <div class="col-12">
-                        <button class="btn btn-primary"
-                                type="submit"
-                                id="storeSubmitBtn">
-                            <i class="bi bi-check-circle me-1"></i>
-                            등록
-                        </button>
-                    </div>
-
-                </form>
-            </div>
-        </div>
-
-    </div>
 </main>
 
 <!-- 공통 하단 푸터 -->
@@ -263,167 +174,7 @@
         th:src="@{/js/modern-saas.js}"
         defer></script>
 
-<script th:inline="javascript">
 
-    /*
-     * + 매장 등록 JavaScript
-     * 역할: 매장 등록 폼의 입력값을 검사하고
-     *       Fetch API를 통해 서버에 매장 등록 요청을 전송합니다.
-     *       서버 응답에 따라 성공 또는 오류 메시지를 표시합니다.
-     */
-    document.addEventListener("DOMContentLoaded", function () {
-
-        // 1. 매장 등록 폼 가져오기
-        const storeForm = document.getElementById("storeForm");
-
-        // 로그인하지 않아 폼이 없으면 실행하지 않음
-        if (!storeForm) {
-            return;
-        }
-
-        // 2. 필요한 HTML 요소 가져오기
-        const storeMsg = document.getElementById("storeMsg");
-        const submitBtn = document.getElementById("storeSubmitBtn");
-
-        // 3. 매장 등록 버튼을 누르면 실행
-        storeForm.addEventListener("submit", async function (event) {
-
-            // 브라우저의 기본 폼 제출 방지
-            event.preventDefault();
-
-            // 4. 사용자가 입력한 데이터 가져오기
-            const storeData = {
-                name: document.getElementById("sName").value.trim(),
-                category: document.getElementById("sCategory").value.trim(),
-                address: document.getElementById("sAddress").value.trim(),
-                pointRate: Number(document.getElementById("sRate").value)
-            };
-
-            // 5. 입력값 검사
-            // 매장 이름이 비어 있으면 등록 중단
-            if (!storeData.name) {
-                showMessage("매장 이름을 입력해주세요.", "danger");
-                return;
-            }
-
-            // 적립률이 정수가 아니거나 0~20 범위를 벗어나면 등록 중단
-            if (!Number.isInteger(storeData.pointRate) ||
-                storeData.pointRate < 0 ||
-                storeData.pointRate > 20) {
-
-                showMessage("적립률은 0~20 사이의 정수로 입력해주세요.", "danger");
-                return;
-            }
-
-            // 중복 클릭 방지를 위해 등록 버튼 비활성화
-            submitBtn.disabled = true;
-            submitBtn.textContent = "등록 중...";
-
-            try {
-
-                // 6. Spring Boot API 호출
-
-                // HTML에서 CSRF 토큰 가져오기
-                const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
-                const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-
-                // 요청 헤더 구성
-                const headers = {
-                    "Content-Type": "application/json"
-                };
-
-                // CSRF 토큰이 있으면 요청 헤더에 추가
-                if (csrfToken && csrfHeader) {
-                    headers[csrfHeader] = csrfToken;
-                }
-
-                // 매장 등록 API 호출
-                // 입력한 매장 정보를 JSON으로 변환하여 POST 요청
-                const response = await fetch("/api/stores", {
-                    method: "POST",
-                    headers: headers,
-                    credentials: "same-origin",
-                    body: JSON.stringify(storeData)
-                });
-
-                // 7. 서버 응답 읽기
-                const responseText = await response.text();
-
-                // 서버 응답 데이터를 저장할 객체
-                let result = {};
-
-                // JSON 응답이면 객체로 변환하고, 아니면 메시지로 저장
-                try {
-                    result = JSON.parse(responseText);
-                } catch (e) {
-                    result = { message: responseText };
-                }
-
-                // 8. 등록 실패
-                if (!response.ok) {
-
-                    // 인증되지 않은 경우
-                    if (response.status === 401) {
-                        showMessage("로그인이 필요합니다.", "danger");
-
-                        // 접근 권한 또는 보안 검증에 실패한 경우
-                    } else if (response.status === 403) {
-                        showMessage("매장 등록 권한이 없거나 보안 검증에 실패했습니다.", "danger");
-
-                        // 그 외 오류가 발생한 경우
-                    } else {
-                        showMessage(
-                            result.message || "매장 등록에 실패했습니다.",
-                            "danger"
-                        );
-                    }
-
-                    return;
-                }
-
-                // 9. 등록 성공
-                showMessage("매장이 정상적으로 등록되었습니다.", "success");
-
-                // 입력 폼 초기화
-                storeForm.reset();
-
-                // 내 매장 정보 페이지로 이동
-                window.location.href = "/store-settings";
-
-            } catch (error) {
-
-                // 서버 통신 오류 발생 시 콘솔에 기록
-                console.error("매장 등록 오류:", error);
-
-                // 사용자에게 오류 메시지 표시
-                showMessage(
-                    "서버와 통신하는 중 오류가 발생했습니다.",
-                    "danger"
-                );
-
-            } finally {
-
-                // 등록 성공 또는 실패 후 버튼 상태 복구
-                submitBtn.disabled = false;
-                submitBtn.innerHTML =
-                    '<i class="bi bi-check-circle me-1"></i> 등록';
-            }
-        });
-
-        /*
-         * + 매장 등록 결과 메시지 출력
-         * 역할: 성공 또는 실패 메시지에 맞는 Bootstrap 스타일을 적용하고,
-         *       사용자에게 결과를 표시합니다.
-         */
-        // 10. 성공 / 오류 메시지 출력
-        function showMessage(message, type) {
-
-            storeMsg.className = "alert alert-" + type;
-            storeMsg.textContent = message;
-        }
-
-    });
-</script>
 
 
 

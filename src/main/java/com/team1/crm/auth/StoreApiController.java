@@ -103,6 +103,8 @@ public class StoreApiController {
                         item.put("name", store.getName()); // 매장 이름
                         item.put("category", store.getCategory()); // 업종
                         item.put("address", store.getAddress()); // 매장 주소
+                        item.put("status", store.getStatus().name());
+                        item.put("closedAt", store.getClosedAt());
                         item.put("pointRate", store.getPointRate()); // 포인트 적립률
 
                         return item;

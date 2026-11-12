@@ -100,13 +100,21 @@ public class CustomerViewController {
             return "redirect:/login";
         }
 
-        List<Store> stores = storeService.getMyStores(member.getEmail());
+        List<Store> allStores = storeService.getMyStores(member.getEmail());
+        List<Store> stores = allStores.stream().filter(store -> !store.isClosed()).toList();
 
         if (stores.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "고객을 관리하려면 먼저 매장을 등록해 주세요."
-            );
+            model.addAttribute("closedOnly", !allStores.isEmpty());
+            model.addAttribute("closedStoreId", allStores.isEmpty() ? null : allStores.getFirst().getId());
+            return "customer/no-store";
+        }
+
+        // 폐업 매장은 고객 업무 대신 과거 통계로 안내한다. 작성자: 김순민 / 작성일: 2026-11-11
+        var closedStore = allStores.stream().filter(store -> store.isClosed() && store.getId().equals(storeId)).findFirst();
+        if (closedStore.isPresent()) {
+            model.addAttribute("closedOnly", true);
+            model.addAttribute("closedStoreId", closedStore.get().getId());
+            return "customer/no-store";
         }
 
         if (storeId == null) {

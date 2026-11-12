@@ -19,7 +19,7 @@ public interface AdminStoreRepository extends Repository<Store, Long> {
      */
     @Query("""
             select new com.team1.crm.admin.AdminStoreRow(
-                s.id, s.name, s.category, s.address, o.id, o.nickname, o.email, s.pointRate)
+                s.id, s.name, s.category, s.address, o.id, o.nickname, o.email, s.pointRate, s.closedAt)
             from Store s left join s.owner o
             order by s.id
             """)

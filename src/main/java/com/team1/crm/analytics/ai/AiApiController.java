@@ -57,6 +57,7 @@ public class AiApiController {
                 .filter(ownedStore -> ownedStore.getId().equals(storeId))
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
+        store.requireOpen();
         var segment = analytics.summarizeRfm(storeId, month).gradeCounts().stream()
                 .filter(count -> count.label().equals(grade) && count.count() > 0)
                 .findFirst()

@@ -20,9 +20,9 @@
         <span class="saas-topbar-label" th:text="${isAdmin} ? '플랫폼 관리자' : '매장 고객 관리 시스템'">매장 고객 관리 시스템</span>
         <div class="saas-topbar-right">
             <th:block th:if="${loginMember != null}">
-                <span class="saas-user"><i class="bi bi-person-circle"></i>
+                <a class="saas-user" th:href="@{/my-profile}" aria-label="내 정보 수정"><i class="bi bi-person-circle"></i>
                     <span th:text="${loginMember.nickname}">사용자</span>
-                </span>
+                </a>
                 <form th:action="@{/logout}" method="post" class="m-0">
                     <button type="submit" class="saas-logout"
                             style="border:0;background:none;cursor:pointer;">
@@ -47,13 +47,13 @@
         </th:block>
 
         <th:block th:if="${isOwner}">
-            <div class="saas-nav-section">WORKSPACE</div>
+            <!-- 사장님 메뉴를 조회·관리 역할로 구분한다. 변경: 김순민 / 2026-11-12 -->
+            <div class="saas-nav-section">현황 · 분석</div>
             <a class="saas-side-link" data-route="/" th:href="@{/}"><i class="bi bi-grid-1x2"></i> 매장 운영 현황</a>
-            <a class="saas-side-link" data-route="/store-settings" th:href="@{/store-settings}"><i class="bi bi-gear"></i> 내 매장 정보</a>
-            <div class="saas-nav-section">CUSTOMERS</div>
-            <a class="saas-side-link" data-route="/customers" th:href="@{/customers}"><i class="bi bi-people"></i> 고객 관리</a>
-            <div class="saas-nav-section">INSIGHTS</div>
             <a class="saas-side-link" data-route="/analytics/dashboard" th:href="@{/analytics/dashboard}"><i class="bi bi-graph-up-arrow"></i> 분석 · RFM · AI</a>
+            <div class="saas-nav-section">매장 · 고객 관리</div>
+            <a class="saas-side-link" data-route="/store-settings" th:href="@{/store-settings}"><i class="bi bi-gear"></i> 내 매장 정보</a>
+            <a class="saas-side-link" data-route="/customers" th:href="@{/customers}"><i class="bi bi-people"></i> 고객 관리</a>
         </th:block>
 
         <th:block th:if="${loginMember == null}">
