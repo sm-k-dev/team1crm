@@ -20,18 +20,71 @@ public class MemberApiController {
     private final MemberService memberService;
 
     /**
-     * 회원가입 API
+     * + 이메일 중복확인 API
+     * 역할: 회원가입 전에 이메일 사용 가능 여부 확인
+     * GET /api/members/check-email?email=example@test.com
+     * 작성자: 황현우
+     * 일시: 2026-11-11
+     */
+    @GetMapping("/check-email")
+    public ResponseEntity<?> checkEmail(
+            @RequestParam String email
+    ) {
+        // 1. 이메일 입력값 검사
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("message", "이메일을 입력해주세요.")
+            );
+        }
+
+        // 2. 이메일 중복 여부 확인
+        boolean exists = memberService.isEmailExists(email);
+
+        // 3. 중복된 이메일인 경우
+        if (exists) {
+            return ResponseEntity.ok(
+                    Map.of(
+                            "available", false,
+                            "message", "이미 가입된 이메일입니다."
+                    )
+            );
+        }
+
+        // 4. 사용 가능한 이메일인 경우
+        return ResponseEntity.ok(
+                Map.of(
+                        "available", true,
+                        "message", "사용 가능한 이메일입니다."
+                )
+        );
+    }
+
+
+    /**
+     * + 회원가입 API
+     * 역할: 신규 회원가입 및 이메일·닉네임 중복 오류 처리
      * POST /api/members/signup
      */
     @PostMapping("/signup")
-    public ResponseEntity<String> signup(
+    public ResponseEntity<?> signup(
             @RequestBody MemberSignupForm form
     ) {
-        memberService.signup(form);
+        try {
+            // 1. 회원가입 서비스 실행
+            memberService.signup(form);
 
-        return ResponseEntity.ok(
-                "회원가입이 성공적으로 완료되었습니다."
-        );
+            // 2. 회원가입 성공 시 HTTP 200 반환
+            return ResponseEntity.ok(
+                    Map.of("message", "회원가입이 성공적으로 완료되었습니다.")
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            // 3. 이메일 또는 닉네임 중복 시 HTTP 409 반환
+            return ResponseEntity.status(409).body(
+                    Map.of("message", e.getMessage())
+            );
+        }
     }
 
     /**
