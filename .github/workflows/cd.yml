@@ -1,0 +1,141 @@
+name: CD Deploy to EC2 via S3
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      AWS_REGION: ap-northeast-2
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+
+    steps:
+      - name: 소스 코드 가져오기
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Java 25 준비
+        uses: actions/setup-java@v6
+        with:
+          distribution: corretto
+          java-version: '25'
+
+      - name: Gradle 캐시 설정
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: 빌드 및 테스트
+        run: bash ./gradlew clean build --no-daemon
+
+      - name: AWS 인증
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: S3에 이번 실행의 JAR 업로드
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s build/libs/crm.jar
+          [[ "$S3_BUCKET" =~ ^[a-z0-9][a-z0-9.-]+[a-z0-9]$ ]]
+          OBJECT_KEY="deploy/${GITHUB_SHA}/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}/crm.jar"
+          JAR_SHA256=$(sha256sum build/libs/crm.jar | cut -d ' ' -f 1)
+          aws s3 cp build/libs/crm.jar "s3://${S3_BUCKET}/${OBJECT_KEY}" --only-show-errors
+          echo "OBJECT_KEY=$OBJECT_KEY" >> "$GITHUB_ENV"
+          echo "JAR_SHA256=$JAR_SHA256" >> "$GITHUB_ENV"
+
+      - name: SSH 개인키와 서버 확인 정보 준비
+        shell: bash
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ "$EC2_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$EC2_USERNAME" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          test -n "$EC2_SSH_KEY"
+          test -n "$EC2_KNOWN_HOSTS"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/crm-ssh"
+          printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > "$RUNNER_TEMP/crm-ssh/key"
+          printf '%s\n' "$EC2_KNOWN_HOSTS" | tr -d '\r' > "$RUNNER_TEMP/crm-ssh/known_hosts"
+          ssh-keygen -F "$EC2_HOST" -f "$RUNNER_TEMP/crm-ssh/known_hosts" > /dev/null
+
+      - name: EC2 다운로드 및 서비스 실행 확인
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf -v REMOTE_COMMAND 'bash -s -- %q %q %q' "$S3_BUCKET" "$OBJECT_KEY" "$JAR_SHA256"
+          ssh -i "$RUNNER_TEMP/crm-ssh/key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/crm-ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
+            "${EC2_USERNAME}@${EC2_HOST}" "$REMOTE_COMMAND" <<'REMOTE'
+          set -euo pipefail
+          BUCKET=$1
+          OBJECT_KEY=$2
+          EXPECTED_SHA256=$3
+          APP_DIR=/home/ubuntu/crm
+          export AWS_DEFAULT_REGION=ap-northeast-2
+
+          diagnostics() {
+            echo "배포 실패: 서비스 상태와 최근 로그"
+            sudo -n systemctl status crm --no-pager || true
+            sudo -n journalctl -u crm -n 80 --no-pager || true
+          }
+          trap diagnostics ERR
+
+          test -d "$APP_DIR"
+          test -r "$APP_DIR/crm.env"
+          sudo -n systemctl is-active --quiet mysql
+          TEMP_JAR=$(mktemp "$APP_DIR/.crm.jar.XXXXXX")
+          trap 'rm -f -- "$TEMP_JAR"' EXIT
+          aws s3 cp "s3://${BUCKET}/${OBJECT_KEY}" "$TEMP_JAR" --only-show-errors
+          printf '%s  %s\n' "$EXPECTED_SHA256" "$TEMP_JAR" | sha256sum --check --status
+          chmod 600 "$TEMP_JAR"
+
+          # 실행 중인 JAR에 직접 쓰지 않고 다운로드 완료 후 교체합니다.
+          mv -f -- "$TEMP_JAR" "$APP_DIR/crm.jar"
+          sudo -n systemctl restart crm
+
+          # 로그인 화면 HTTP 200과 systemd 실행 상태를 확인합니다.
+          # DB 업무 기능과 실제 로그인 성공 여부는 별도 검증합니다.
+          for i in $(seq 1 40); do
+            STATUS=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --connect-timeout 2 --max-time 5 http://127.0.0.1:8082/login) || STATUS=000
+            if [[ "$STATUS" == 200 ]] && sudo -n systemctl is-active --quiet crm; then
+              echo "배포 성공: crm 서비스 active, /login HTTP 200"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "기동 확인 시간 초과 (마지막 HTTP 상태: $STATUS)"
+          diagnostics
+          exit 1
+          REMOTE
+
+      - name: 임시 SSH 파일 정리
+        if: always()
+        shell: bash
+        run: |
+          rm -f -- "$RUNNER_TEMP/crm-ssh/key" "$RUNNER_TEMP/crm-ssh/known_hosts"
