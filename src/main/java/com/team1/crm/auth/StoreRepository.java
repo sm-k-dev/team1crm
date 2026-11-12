@@ -15,6 +15,14 @@ import java.util.Optional;
  */
 
 public interface StoreRepository extends JpaRepository<Store, Long> {
+    /** 같은 소유자의 다른 영업 매장 이름 중복을 확인한다. 작성자: 김순민 / 작성일: 2026-11-12 */
+    boolean existsByOwner_IdAndNameAndClosedAtIsNullAndIdNot(Long ownerId, String name, Long id);
+    /** 폐업·고객 쓰기를 직렬화하기 위해 매장을 잠근다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select s from Store s where s.id = :id")
+    Optional<Store> findLockedById(@org.springframework.data.repository.query.Param("id") Long id);
+    /** 이미 로딩한 엔티티와 별개로 DB의 최신 폐업 여부를 확인한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    boolean existsByIdAndClosedAtIsNotNull(Long id);
     // JpaRepository<Store, Long>
     // Store : 데이터베이스의 매장 정보를 나타내는 Entity 클래스
     // Long  : Store Entity의 기본키(PK) 자료형

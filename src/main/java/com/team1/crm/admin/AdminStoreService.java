@@ -42,6 +42,7 @@ public class AdminStoreService {
     /** 기존 매장을 수정 입력값으로 변환한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     public AdminStoreForm findForm(Long storeId) {
         Store store = findStore(storeId);
+        store.requireOpen();
         var form = new AdminStoreForm();
         form.setName(store.getName());
         form.setCategory(store.getCategory());
@@ -62,7 +63,12 @@ public class AdminStoreService {
     /** 매장 정보와 소유자를 하나의 트랜잭션으로 변경한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     @Transactional
     public void update(Long storeId, AdminStoreForm form) {
-        Store store = findStore(storeId);
+        Store store = storeRepository.findLockedById(storeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "매장을 찾을 수 없습니다."));
+        if (storeRepository.existsByIdAndClosedAtIsNotNull(storeId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "폐업 매장은 변경할 수 없습니다.");
+        }
+        store.requireOpen();
         Member owner = findOwner(form.getOwnerId());
         store.update(form.getName().strip(), clean(form.getCategory()), clean(form.getAddress()), form.getPointRate());
         store.changeOwner(owner);

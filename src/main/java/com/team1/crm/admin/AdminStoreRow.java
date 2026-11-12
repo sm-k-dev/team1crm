@@ -5,5 +5,7 @@ package com.team1.crm.admin;
  * 작성자: 김순민 / 작성일: 2026-11-11
  */
 public record AdminStoreRow(Long id, String name, String category, String address,
-                            Long ownerId, String ownerNickname, String ownerEmail, int pointRate) {
+                            Long ownerId, String ownerNickname, String ownerEmail, int pointRate, java.time.LocalDateTime closedAt) {
+    /** 폐업 표시와 수정 버튼 제어에 사용한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    public boolean isClosed() { return closedAt != null; }
 }

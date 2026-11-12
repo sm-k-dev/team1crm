@@ -24,6 +24,17 @@ import java.util.List;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final com.team1.crm.auth.StoreRepository storeRepository;
+
+    /** 폐업과 고객 쓰기가 동시에 실행되지 않도록 같은 매장을 잠근다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    private void requireWritableStore(Long storeId) {
+        storeRepository.findLockedById(storeId)
+                .orElseThrow(() -> new IllegalArgumentException("매장을 찾을 수 없습니다.")).requireOpen();
+        if (storeRepository.existsByIdAndClosedAtIsNotNull(storeId)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, "폐업 매장은 변경할 수 없습니다.");
+        }
+    }
 
     /**
      * 소유권 확인을 마친 매장의 고객을 소프트 삭제한다.
@@ -36,6 +47,7 @@ public class CustomerService {
      */
     @Transactional
     public void deleteCustomer(Long storeId, Long customerId) {
+        requireWritableStore(storeId);
         findCustomer(storeId, customerId).softDelete();
     }
 
@@ -109,6 +121,7 @@ public class CustomerService {
             throw new IllegalArgumentException("등록할 매장 정보를 확인해 주세요.");
         }
 
+        requireWritableStore(store.getId());
         String phone = normalizePhone(form.getPhone());
 
         if (customerRepository.existsByStore_IdAndPhone(store.getId(), phone)) {
@@ -178,6 +191,7 @@ public class CustomerService {
             Long customerId,
             CustomerForm form
     ) {
+        requireWritableStore(storeId);
         Customer customer = findCustomer(storeId, customerId);
 
         String phone = normalizePhone(form.getPhone());

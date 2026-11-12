@@ -42,10 +42,12 @@ class CustomerServiceTest {
     @BeforeEach
     void setUp() {
         customerRepository = mock(CustomerRepository.class);
-        customerService = new CustomerService(customerRepository);
+        var storeRepository = mock(com.team1.crm.auth.StoreRepository.class);
+        customerService = new CustomerService(customerRepository, storeRepository);
 
         store = mock(Store.class);
         when(store.getId()).thenReturn(900101L);
+        when(storeRepository.findLockedById(any())).thenReturn(Optional.of(store));
     }
 
     /**

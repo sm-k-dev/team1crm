@@ -76,7 +76,10 @@ public class StoreSettingsViewController {
         // "stores"라는 이름으로 Model에 저장
         model.addAttribute(
                 "stores",
-                storeService.getMyStores(email)
+                // 영업 중 우선, 각 상태 안에서는 매장 ID 오름차순. 변경: 김순민 / 2026-11-12
+                storeService.getMyStores(email).stream()
+                        .sorted(java.util.Comparator.comparing(Store::isClosed).thenComparing(Store::getId))
+                        .toList()
         );
 
         // 5. 내 매장 정보 페이지 출력

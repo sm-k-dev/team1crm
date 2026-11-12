@@ -62,7 +62,7 @@
   <h2 class="h5">매장 목록</h2>
   <div class="table-responsive">
     <table class="table align-middle">
-      <thead><tr><th scope="col">ID</th><th scope="col">매장명</th><th scope="col">업종</th><th scope="col">주소</th><th scope="col">연결된 사장님</th><th scope="col">이메일</th><th scope="col">적립률</th><th scope="col">관리</th></tr></thead>
+      <thead><tr><th scope="col">ID</th><th scope="col">매장명</th><th scope="col">업종</th><th scope="col">주소</th><th scope="col">연결된 사장님</th><th scope="col">이메일</th><th scope="col">적립률</th><th scope="col">상태</th><th scope="col">관리</th></tr></thead>
       <tbody>
         <tr th:each="store : ${stores}">
           <td th:text="${store.id}"></td>
@@ -72,9 +72,10 @@
           <td th:text="${store.ownerId == null ? '미연결' : store.ownerNickname}"></td>
           <td th:text="${store.ownerEmail ?: '-'}"></td>
           <td th:text="${store.pointRate + '%'}"></td>
-          <td><a class="btn btn-outline-primary btn-sm" th:href="@{/admin/stores/{id}/edit(id=${store.id})}">수정</a></td>
+          <td th:text="${store.closed ? '폐업' : '영업 중'}"></td>
+          <td><a th:unless="${store.closed}" class="btn btn-outline-primary btn-sm" th:href="@{/admin/stores/{id}/edit(id=${store.id})}">수정</a></td>
         </tr>
-        <tr th:if="${#lists.isEmpty(stores)}"><td colspan="8" class="text-center text-muted">등록된 매장이 없습니다.</td></tr>
+        <tr th:if="${#lists.isEmpty(stores)}"><td colspan="9" class="text-center text-muted">등록된 매장이 없습니다.</td></tr>
       </tbody>
     </table>
   </div>
