@@ -62,7 +62,7 @@ public class AiApiController {
                 .filter(count -> count.label().equals(grade) && count.count() > 0)
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST));
-        var reservation = usage.reserve(member.getId());
+        var reservation = usage.reserve(store.getId());
         try {
             var result = marketing.generate(segment, store.getCategory(), reservation.remaining());
             return new Suggestions(result.messages(), reservation.remaining(), result.example());

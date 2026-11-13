@@ -1,8 +1,10 @@
 package com.team1.crm.customer;
 
+import com.team1.crm.analytics.AnalyticsService;
 import com.team1.crm.auth.Member;
 import com.team1.crm.auth.Role;
 import com.team1.crm.auth.Store;
+import com.team1.crm.loyalty.visit.Visit;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -37,11 +41,76 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.sql.init.mode=never"
 })
 @ActiveProfiles("test")
-@Import({CustomerService.class, CustomerPrivacyService.class})
+@Import({CustomerService.class, CustomerPrivacyService.class, AnalyticsService.class})
 class CustomerRepositoryTest {
 
     @Autowired
     private CustomerPrivacyService customerPrivacyService;
+
+    @Autowired
+    private AnalyticsService analyticsService;
+
+    /**
+     * 삭제 및 개인정보 제거 전후의 과거 집계를 비교하고 현재 고객만 RFM에 포함되는지 확인한다.
+     *
+     * 작성자: 한상희
+     * 작성일: 2026-11-11
+     */
+    @Test
+    @DisplayName("고객 삭제와 개인정보 제거 후에도 방문 집계는 유지되고 RFM에는 현재 고객만 남는다")
+    void customerDeletionKeepsHistoricalAnalyticsAndExcludesCustomerFromRfm() {
+        Store store = createStore("analytics-history");
+        Customer removed = createCustomer(store, "삭제 대상 고객", "010-1111-5678");
+        Customer active = createCustomer(store, "현재 고객", "010-2222-5678");
+        Long storeId = store.getId();
+        Long removedId = removed.getId();
+        YearMonth month = YearMonth.of(2026, 7);
+        entityManager.persist(new Visit(removed, month.atDay(1).atTime(12, 0), 15000, 0, null));
+        entityManager.persist(new Visit(removed, month.atDay(2).atTime(13, 0), 5000, 0, null));
+        entityManager.persist(new Visit(active, month.atDay(1).atTime(12, 0), 10000, 0, null));
+        entityManager.flush();
+
+        var before = analyticsService.summarize(storeId, month);
+        assertEquals(30000L, before.revenue());
+        assertEquals(3L, before.visits());
+        assertEquals(2L, before.customers());
+        assertEquals(1L, before.repeatCustomers());
+        assertEquals(50L, before.repeatRatePercent());
+        assertEquals(2, analyticsService.summarizeRfm(storeId, month).rows().size());
+
+        customerService.deleteCustomer(storeId, removedId);
+        entityManager.flush();
+        entityManager.clear();
+        assertHistoryAndCurrentRfm(storeId, month, before);
+
+        setDeletedAt(removedId, LocalDateTime.of(2026, 8, 11, 3, 0));
+        assertEquals(1, customerPrivacyService.removeExpiredPersonalData(LocalDateTime.of(2026, 11, 11, 3, 0)));
+        assertHistoryAndCurrentRfm(storeId, month, before);
+    }
+
+    /**
+     * 과거 요약과 차트를 비교하고 RFM의 고객 목록·등급별 인원·점수를 검증한다.
+     *
+     * 작성자: 한상희
+     * 작성일: 2026-11-11
+     */
+    private void assertHistoryAndCurrentRfm(Long storeId, YearMonth month, AnalyticsService.Summary before) {
+        var after = analyticsService.summarize(storeId, month);
+        var rfm = analyticsService.summarizeRfm(storeId, month);
+        assertAll(
+                () -> assertEquals(before.revenue(), after.revenue()),
+                () -> assertEquals(before.visits(), after.visits()),
+                () -> assertEquals(before.customers(), after.customers()),
+                () -> assertEquals(before.repeatCustomers(), after.repeatCustomers()),
+                () -> assertEquals(before.repeatRatePercent(), after.repeatRatePercent()),
+                () -> assertArrayEquals(before.weekdayVisits(), after.weekdayVisits()),
+                () -> assertArrayEquals(before.hourlyVisits(), after.hourlyVisits()),
+                () -> assertEquals(before.monthlyTrend(), after.monthlyTrend()),
+                () -> assertEquals(List.of(new AnalyticsService.RfmRow(
+                        "현재 고객", "2026-07-01", 1, 10000, 5, 5, 5, "VIP")), rfm.rows()),
+                () -> assertEquals(1, rfm.gradeCounts().stream().mapToInt(AnalyticsService.GradeCount::count).sum())
+        );
+    }
 
     /**
      * 보관 기간 경계와 월말 보정을 실제 DB의 날짜 계산으로 검증한다.
