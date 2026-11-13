@@ -4,9 +4,7 @@
 -- 개발 DB 검증 대상은 crm이었다. 다른 환경에서는 해당 DB를 선택한다.
 -- 아래 조회는 읽기 전용이다. DDL은 확인 후 필요한 문장만 주석을 해제해 실행한다.
 
-SELECT DATABASE() AS selected_database;
-SHOW CREATE TABLE store;
-SHOW INDEX FROM store;
+
 
 -- 1. SHOW INDEX에서 다음 조건을 모두 만족하는 기존 인덱스를 확인한다.
 --    Non_unique=0, 해당 Key_name의 전체 행이 1개, Column_name=member_id.

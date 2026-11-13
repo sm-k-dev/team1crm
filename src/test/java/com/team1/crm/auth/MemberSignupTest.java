@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /** 테스트 DB에서 가입 방식 간 중복·기존 데이터 보존을 검증한다. 작성자: 김순민 / 작성일: 2026-11-13 */
@@ -86,6 +87,37 @@ class MemberSignupTest {
         mvc.perform(post("/api/members/signup").contentType("application/json")
                         .content("{\"email\":\"invalid\",\"password\":\"\",\"nickname\":\"새이름\"}"))
                 .andExpect(status().isBadRequest());
+        assertEquals(0, repository.count());
+    }
+
+    /** 현우 담당 사전 중복 확인도 최종 가입과 같은 기준인지 검증한다. 작성자: 김순민 / 작성일: 2026-11-13 */
+    @Test @DisplayName("이메일 사전 확인은 Google 계정의 대문자·공백 입력도 중복으로 응답한다")
+    void emailAvailability() throws Exception {
+        Member google = new Member("google@example.com", "", "구글회원", Role.USER);
+        google.linkSocial("google", "subject-123");
+        repository.saveAndFlush(google);
+        var mvc = MockMvcBuilders.standaloneSetup(new MemberApiController(service)).build();
+        mvc.perform(get("/api/members/check-email").param("email", " GOOGLE@EXAMPLE.COM "))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.available").value(false));
+        assertEquals(1, repository.count());
+    }
+
+    /** 병합 후에도 기존 닉네임 검증이 유지되는지 확인한다. 작성자: 김순민 / 작성일: 2026-11-13 */
+    @Test @DisplayName("이메일이 새로워도 기존 닉네임은 일반 가입에서 거부한다")
+    void nicknameConflict() {
+        repository.saveAndFlush(new Member("existing@example.com", "hash", "신규회원", Role.USER));
+        assertThrows(IllegalArgumentException.class, () -> service.signup(form("new@example.com")));
+        assertEquals(1, repository.count());
+    }
+
+    /** 팀원의 비밀번호 조합 정책이 병합으로 빠지지 않도록 검증한다. 작성자: 김순민 / 작성일: 2026-11-13 */
+    @ParameterizedTest
+    @ValueSource(strings = {"abc1!", "abcdefgh!", "12345678!", "password123", "password 123!", "Password1234567890123!"})
+    @DisplayName("일반 가입의 길이·영문·숫자·특수문자·공백 조건을 유지한다")
+    void passwordPolicy(String password) {
+        MemberSignupForm form = form("new@example.com");
+        form.setPassword(password);
+        assertThrows(IllegalArgumentException.class, () -> service.signup(form));
         assertEquals(0, repository.count());
     }
 

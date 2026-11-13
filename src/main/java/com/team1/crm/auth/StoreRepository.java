@@ -51,4 +51,20 @@ public interface StoreRepository extends JpaRepository<Store, Long> {
      */
     Optional<Store> findByIdAndOwner_Id(Long storeId, Long memberId);
 
+    /**
+     * + 동일 소유자의 매장 중복 등록 확인
+     * 역할: 같은 회원이 동일한 이름과 주소의 매장을
+     *       이미 등록했는지 확인합니다.
+     *
+     * @param memberId 매장 소유자의 회원 ID
+     * @param name 매장 이름
+     * @param address 매장 주소
+     * @return 중복 매장이 있으면 true, 없으면 false
+     */
+    boolean existsByOwner_IdAndNameAndAddress(
+            Long memberId,
+            String name,
+            String address
+    );
+
 }

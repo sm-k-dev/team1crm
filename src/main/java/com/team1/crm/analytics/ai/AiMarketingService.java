@@ -4,14 +4,20 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.team1.crm.analytics.AnalyticsService.GradeCount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+import javax.net.ssl.SSLException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -47,17 +53,29 @@ public class AiMarketingService {
      * 작성자 한상희
      * 작성일 2026-11-11
      * 변경노트 2026-11-11 한상희: 모델이 비어 있으면 API 키 설정 여부에 따라 기본 모델을 선택한다.
+     * 변경노트 2026-11-12 한상희: 무료 모델 응답 지연에 대비해 읽기 제한을 30초로 조정한다.
      */
+    @Autowired
     public AiMarketingService(@Value("${OPENROUTER_API_KEY:}") String apiKey,
                               @Value("${OPENROUTER_MODEL:}") String model) {
+        this(apiKey, model, openRouterClient());
+    }
+
+    /** 운영 또는 테스트에서 사용할 HTTP 클라이언트를 받는다. 작성자 한상희, 작성일 2026-11-12 */
+    AiMarketingService(String apiKey, String model, RestClient client) {
         this.apiKey = apiKey.strip();
         String configuredModel = model.strip();
         this.model = !this.apiKey.isEmpty() && configuredModel.isEmpty()
                 ? DEFAULT_FREE_MODEL : configuredModel;
+        this.client = client;
+    }
+
+    /** OpenRouter 주소와 대기 시간을 적용한 클라이언트를 만든다. 작성자 한상희, 작성일 2026-11-12 */
+    private static RestClient openRouterClient() {
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5_000);
-        factory.setReadTimeout(20_000);
-        this.client = RestClient.builder()
+        factory.setReadTimeout(30_000);
+        return RestClient.builder()
                 .baseUrl("https://openrouter.ai/api/v1")
                 .requestFactory(factory)
                 .build();
@@ -145,9 +163,22 @@ public class AiMarketingService {
                         "설정한 OpenRouter 무료 모델을 현재 사용할 수 없습니다.");
                 default -> new AiUnavailableException("OpenRouter 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.");
             };
+        } catch (ResourceAccessException exception) {
+            Throwable cause = NestedExceptionUtils.getMostSpecificCause(exception);
+            log.warn("OpenRouter transport failed ({})", cause.getClass().getSimpleName());
+            if (exception.contains(SocketTimeoutException.class)) {
+                throw new AiUnavailableException("OpenRouter 요청 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.");
+            }
+            if (exception.contains(UnknownHostException.class)) {
+                throw new AiUnavailableException("서버에서 OpenRouter 주소를 찾을 수 없습니다. 네트워크 설정을 확인해 주세요.");
+            }
+            if (exception.contains(SSLException.class)) {
+                throw new AiUnavailableException("OpenRouter 보안 연결에 실패했습니다. 서버 인증서 설정을 확인해 주세요.");
+            }
+            throw new AiUnavailableException("서버에서 OpenRouter에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
         } catch (RestClientException exception) {
-            log.warn("OpenRouter request failed ({})", exception.getClass().getSimpleName());
-            throw new AiUnavailableException("OpenRouter 연결 또는 응답 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+            log.warn("OpenRouter response processing failed ({})", exception.getClass().getSimpleName());
+            throw new AiUnavailableException("OpenRouter 응답을 읽을 수 없습니다. 잠시 후 다시 시도해 주세요.");
         }
     }
 

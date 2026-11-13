@@ -30,10 +30,33 @@ public class MemberService {
             throw new DuplicateMemberEmailException();
         }
 
-        // 비밀번호 암호화 (Argon2 적용)
-        String encodedPassword = passwordEncoder.encode(form.getPassword());
+        // 2. 닉네임 중복 검사
+        if (memberRepository.existsByNickname(form.getNickname())) {
+            throw new IllegalArgumentException(
+                    "이미 사용 중인 닉네임입니다."
+            );
+        }
 
-        // 회원 엔티티 생성 (빌더 패턴 활용, 기본 권한은 OWNER 또는 지정된 권한)
+        // 3. 비밀번호 보안 조건 검사
+        // 영문, 숫자, 특수문자 각각 1개 이상 포함
+        // 8~20자, 공백 사용 불가
+        String password = form.getPassword();
+
+        if (password == null ||
+                !password.matches(
+                        "^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9\\s])\\S{8,20}$"
+                )) {
+
+            throw new IllegalArgumentException(
+                    "비밀번호는 8~20자이며 영문, 숫자, 특수문자를 각각 1개 이상 포함해야 합니다. 공백은 사용할 수 없습니다."
+            );
+        }
+
+        // 4. 비밀번호 암호화
+        // SecurityConfig 등에 등록된 PasswordEncoder 사용
+        String encodedPassword = passwordEncoder.encode(password);
+
+        // 5. 회원 엔티티 생성 (기본 권한 USER)
         Member member = Member.builder()
                 .email(email)
                 .password(encodedPassword)
@@ -45,4 +68,18 @@ public class MemberService {
         Member savedMember = memberRepository.saveAndFlush(member);
         return savedMember.getId();
     }
+
+    /**
+     * 이메일 중복 여부 확인
+     * true  : 이미 가입된 이메일
+     * false : 사용 가능한 이메일
+     */
+    public boolean isEmailExists(String email) {
+        // 사전 확인과 최종 저장에서 같은 중복 기준을 사용한다.
+        // 작성자: 김순민 / 작성일: 2026-11-13
+        return memberRepository.existsByNormalizedEmail(EmailAddress.normalize(email));
+    }
+
+
+
 }

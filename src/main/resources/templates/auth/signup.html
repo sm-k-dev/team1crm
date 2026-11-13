@@ -77,20 +77,59 @@
                     -->
                     <form id="signupForm">
 
-                        <!-- 이메일 입력 영역 -->
+                        <!--
+    + 이메일 중복확인 기능
+    역할: 회원가입 전에 이메일 사용 가능 여부 확인
+    작성자: 황현우
+    일시: 2026-11-11
+-->
                         <div class="mb-3">
                             <label class="form-label" for="email">이메일</label>
-                            <input class="form-control" id="email" name="email"
-                                   placeholder="example@test.com" required="" type="email"/>
+
+                            <!-- 이메일 입력창 + 중복확인 버튼 -->
+                            <div class="input-group">
+                                <input class="form-control"
+                                       id="email"
+                                       name="email"
+                                       type="email"
+                                       placeholder="example@test.com"
+                                       autocomplete="email"
+                                       required>
+
+                                <button class="btn btn-outline-primary"
+                                        type="button"
+                                        id="checkEmailBtn">
+                                    중복확인
+                                </button>
+                            </div>
+
+                            <!-- 이메일 중복확인 결과 표시 -->
+                            <div id="emailCheckMsg"
+                                 class="form-text"
+                                 aria-live="polite"></div>
                         </div>
 
                         <!-- 비밀번호 입력 영역 -->
                         <!-- minlength / maxlength : 입력 가능한 글자 수 제한 -->
                         <div class="mb-3">
                             <label class="form-label" for="password">비밀번호</label>
-                            <input class="form-control" id="password" name="password"
-                                   maxlength="20" minlength="4"
-                                   placeholder="4~20자" required="" type="password"/>
+                            <input class="form-control"
+                                   id="password"
+                                   name="password"
+                                   type="password"
+                                   minlength="8"
+                                   maxlength="20"
+                                   pattern="(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{8,20}"
+                                   title="영문, 숫자, 특수문자를 각각 1개 이상 포함한 8~20자로 입력하세요. 공백은 사용할 수 없습니다."
+                                   placeholder="영문 + 숫자 + 특수문자 (8~20자)"
+                                   autocomplete="new-password"
+                                   required>
+
+                            <!-- 비밀번호 조건 안내 -->
+                            <div class="form-text">
+                                영문, 숫자, 특수문자를 각각 1개 이상 포함해 주세요.
+                                (8~20자, 공백 불가)
+                            </div>
                         </div>
 
                         <!-- 닉네임 입력 영역 -->
@@ -137,6 +176,93 @@
 <script src="/js/modern-saas.js" th:src="@{/js/modern-saas.js}" defer></script>
 
 <script>
+
+    // ======================================================
+    // + 이메일 중복확인 기능
+    // 역할: 이메일 중복 여부 확인 및 확인 상태 관리
+    // ======================================================
+
+    // 중복확인을 완료한 이메일 저장
+    let verifiedEmail = null;
+
+    const emailInput = document.getElementById('email');
+    const checkEmailBtn = document.getElementById('checkEmailBtn');
+    const emailCheckMsg = document.getElementById('emailCheckMsg');
+
+    // 이메일을 수정하면 기존 중복확인 결과 초기화
+    emailInput.addEventListener('input', function() {
+        verifiedEmail = null;
+
+        emailCheckMsg.textContent = '';
+        emailCheckMsg.className = 'form-text';
+    });
+
+    // 이메일 중복확인 버튼 클릭
+    checkEmailBtn.addEventListener('click', async function() {
+
+        const email = emailInput.value.trim();
+
+        // 1. 이메일 입력 여부 및 형식 검사
+        if (!email || !emailInput.checkValidity()) {
+            emailInput.reportValidity();
+            return;
+        }
+
+        // 2. 이전 확인 상태 초기화
+        verifiedEmail = null;
+
+        checkEmailBtn.disabled = true;
+        emailCheckMsg.textContent = '이메일 확인 중...';
+        emailCheckMsg.className = 'form-text';
+
+        try {
+            // 3. 서버에 이메일 중복확인 요청
+            const response = await fetch(
+                '/api/members/check-email?email='
+                + encodeURIComponent(email),
+                {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                }
+            );
+
+            // 로그인 화면 등으로 리다이렉트되면 실패 처리
+            if (!response.ok || response.redirected) {
+                throw new Error('이메일 중복확인 요청 실패');
+            }
+
+            const data = await response.json();
+
+            // 요청 중 이메일이 변경되었다면 이전 결과 무시
+            if (emailInput.value.trim() !== email) {
+                return;
+            }
+
+            // 4. 사용 가능한 이메일
+            if (data.available === true) {
+                verifiedEmail = email;
+
+                emailCheckMsg.textContent =
+                    '사용 가능한 이메일입니다.';
+                emailCheckMsg.className = 'form-text text-success';
+
+            } else {
+                // 5. 이미 가입된 이메일
+                emailCheckMsg.textContent =
+                    data.message || '이미 가입된 이메일입니다.';
+                emailCheckMsg.className = 'form-text text-danger';
+            }
+
+        } catch (error) {
+            emailCheckMsg.textContent =
+                '이메일 중복확인 중 오류가 발생했습니다.';
+            emailCheckMsg.className = 'form-text text-danger';
+
+        } finally {
+            checkEmailBtn.disabled = false;
+        }
+    });
+
     /*
      * + 회원가입 폼 제출 이벤트
      * 역할: 회원가입 버튼을 클릭하면 입력값을 수집하고,
@@ -156,6 +282,20 @@
         // 3. 성공 및 오류 메시지를 표시할 HTML 요소 가져오기
         const errorMsg = document.getElementById('errorMsg');
         const successMsg = document.getElementById('successMsg');
+
+        // + 이메일 중복확인 완료 여부 검사
+        // 중복확인하지 않았거나 확인 후 이메일을 수정했다면 가입 차단
+        if (verifiedEmail === null || verifiedEmail !== email.trim()) {
+
+            errorMsg.textContent =
+                '이메일 중복확인을 먼저 해주세요.';
+
+            errorMsg.classList.remove('d-none');
+            successMsg.classList.add('d-none');
+
+            emailInput.focus();
+            return;
+        }
 
         try {
 
@@ -183,10 +323,15 @@
                 credentials: 'same-origin',
                 body: JSON.stringify({ email, password, nickname })
             });
-
+            console.log('회원가입 응답 상태:', response.status);
+            console.log('최종 응답 주소:', response.url);
+            console.log('리다이렉트 여부:', response.redirected);
             // 8. 회원가입 성공 여부 확인
-            if (response.ok) {
-
+            if (
+                response.ok &&
+                !response.redirected &&
+                response.url.includes('/api/members/signup')
+            ) {
                 // 성공 메시지 설정
                 successMsg.textContent = '회원가입이 완료되었습니다! 로그인 페이지로 이동합니다.';
 
