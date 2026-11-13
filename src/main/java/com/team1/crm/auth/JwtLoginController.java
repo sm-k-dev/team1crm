@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 
@@ -78,13 +78,14 @@ public class JwtLoginController {
                     "tokenType", "Bearer"
             ));
 
-        } catch (BadCredentialsException e) {
+        } catch (AuthenticationException e) {
 
-            // 이메일 또는 비밀번호가 일치하지 않으면 401 Unauthorized 반환
+            // 비밀번호 불일치·소셜 전용 계정 등 인증 거부는 토큰 없이 401을 반환한다.
+            // 작성자: 김순민 / 작성일: 2026-11-13
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of(
                             "message",
-                            "이메일 또는 비밀번호가 올바르지 않습니다."
+                            "이메일 또는 비밀번호를 확인해 주세요. Google 가입 계정은 Google 로그인을 이용해 주세요."
                     ));
         }
     }

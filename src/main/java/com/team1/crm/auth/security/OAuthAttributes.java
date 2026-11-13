@@ -1,6 +1,7 @@
 package com.team1.crm.auth.security;
 
 import com.team1.crm.auth.Member;
+import com.team1.crm.auth.EmailAddress;
 import com.team1.crm.auth.Role;
 import lombok.Builder;
 import lombok.Getter;
@@ -50,7 +51,7 @@ public class OAuthAttributes {
      */
     public Member toEntity() {
         return Member.builder()
-                .email(email)
+                .email(EmailAddress.normalize(email))
                 .nickname(name)
                 .password("") // 소셜 로그인 사용자는 비밀번호가 없으므로 빈 값 또는 임의 처리
                 .role(Role.USER) // 기본 권한 설정 (프로젝트 정책에 맞게 조절 가능)
