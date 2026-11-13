@@ -2,6 +2,7 @@ package com.team1.crm.auth.security;
 
 import com.team1.crm.auth.Member;
 import com.team1.crm.auth.MemberRepository;
+import com.team1.crm.auth.EmailAddress;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -73,7 +74,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             }
             return linked;
         }
-        if (memberRepository.existsByEmail(attributes.getEmail())) {
+        if (memberRepository.existsByNormalizedEmail(EmailAddress.normalize(attributes.getEmail()))) {
             throw new OAuth2AuthenticationException(new OAuth2Error("account_link_required"),
                     "이미 가입된 이메일입니다. 기존 가입 방식으로 로그인해 주세요.");
         }

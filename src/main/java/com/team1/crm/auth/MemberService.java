@@ -22,9 +22,12 @@ public class MemberService {
 
     @Transactional
     public Long signup(MemberSignupForm form) {
-        // 이메일 중복 체크
-        if (memberRepository.existsByEmail(form.getEmail())) {
-            throw new IllegalArgumentException("이미 가입된 이메일입니다.");
+        // 일반·Google 가입을 구분하지 않고 같은 이메일의 새 회원 생성을 막는다.
+        // 작성자: 김순민 / 작성일: 2026-11-13
+        String email = EmailAddress.normalize(form.getEmail());
+        if (email == null || email.isBlank()) throw new IllegalArgumentException("이메일을 입력해 주세요.");
+        if (memberRepository.existsByNormalizedEmail(email)) {
+            throw new DuplicateMemberEmailException();
         }
 
         // 비밀번호 암호화 (Argon2 적용)
@@ -32,14 +35,14 @@ public class MemberService {
 
         // 회원 엔티티 생성 (빌더 패턴 활용, 기본 권한은 OWNER 또는 지정된 권한)
         Member member = Member.builder()
-                .email(form.getEmail())
+                .email(email)
                 .password(encodedPassword)
                 .nickname(form.getNickname())
                 .role(Role.USER)
                 .build();
 
         // DB에 저장 후 생성된 회원 PK(id) 반환
-        Member savedMember = memberRepository.save(member);
+        Member savedMember = memberRepository.saveAndFlush(member);
         return savedMember.getId();
     }
 }

@@ -34,5 +34,10 @@ public class MemberSignupForm {
     // 회원 가입시 선택할 수 있는 권한 (기본값은 서비스나 컨트롤러에서 처리)
     private  Role role;
 
+    /** 검증 전에 이메일 비교·저장 형식을 통일한다. 작성자: 김순민 / 작성일: 2026-11-13 */
+    public void setEmail(String email) {
+        this.email = EmailAddress.normalize(email);
+    }
+
 
 }
