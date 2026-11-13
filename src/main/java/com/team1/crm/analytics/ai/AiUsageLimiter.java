@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 서버 인스턴스에서 회원별 일일 문구 생성 횟수를 관리한다.
+ * 서버 인스턴스에서 매장별 일일 문구 생성 횟수를 관리한다.
  *
  * 작성자 한상희
  * 작성일 2026-11-11
@@ -30,18 +30,18 @@ public class AiUsageLimiter {
      * 작성일 2026-11-11
      * 변경노트 2026-11-11 한상희: 실패한 요청의 예약을 취소할 수 있도록 날짜를 함께 반환한다.
      */
-    public synchronized Reservation reserve(long memberId) {
+    public synchronized Reservation reserve(long storeId) {
         LocalDate today = LocalDate.now(SEOUL);
         if (!today.equals(usageDate)) {
             requests.clear();
             usageDate = today;
         }
-        int used = requests.getOrDefault(memberId, 0);
+        int used = requests.getOrDefault(storeId, 0);
         if (used >= DAILY_LIMIT) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS);
         }
-        requests.put(memberId, used + 1);
-        return new Reservation(memberId, today, DAILY_LIMIT - used - 1);
+        requests.put(storeId, used + 1);
+        return new Reservation(storeId, today, DAILY_LIMIT - used - 1);
     }
 
     /**
@@ -52,10 +52,10 @@ public class AiUsageLimiter {
      */
     public synchronized void release(Reservation reservation) {
         if (usageDate.equals(reservation.date())) {
-            requests.computeIfPresent(reservation.memberId(), (id, used) -> used == 1 ? null : used - 1);
+            requests.computeIfPresent(reservation.storeId(), (id, used) -> used == 1 ? null : used - 1);
         }
     }
 
-    /** 예약한 회원, 서울 날짜, 예약 직후 남은 횟수를 담는다. 작성자 한상희, 작성일 2026-11-11 */
-    public record Reservation(long memberId, LocalDate date, int remaining) {}
+    /** 예약한 매장, 서울 날짜, 예약 직후 남은 횟수를 담는다. 작성자 한상희, 작성일 2026-11-11 */
+    public record Reservation(long storeId, LocalDate date, int remaining) {}
 }

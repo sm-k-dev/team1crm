@@ -13,17 +13,18 @@ class AiUsageLimiterTest {
     @Test
     void failedRequestsDoNotConsumeDailyLimit() {
         var limiter = new AiUsageLimiter();
-        long memberId = 1L;
+        long storeId = 1L;
 
         for (int attempt = 0; attempt < 6; attempt++) {
-            var reservation = limiter.reserve(memberId);
+            var reservation = limiter.reserve(storeId);
             assertEquals(4, reservation.remaining());
             limiter.release(reservation);
         }
         for (int remaining = 4; remaining >= 0; remaining--) {
-            assertEquals(remaining, limiter.reserve(memberId).remaining());
+            assertEquals(remaining, limiter.reserve(storeId).remaining());
         }
-        var exception = assertThrows(ResponseStatusException.class, () -> limiter.reserve(memberId));
+        var exception = assertThrows(ResponseStatusException.class, () -> limiter.reserve(storeId));
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, exception.getStatusCode());
+        assertEquals(4, limiter.reserve(2L).remaining());
     }
 }
