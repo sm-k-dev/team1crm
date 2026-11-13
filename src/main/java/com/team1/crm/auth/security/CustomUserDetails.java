@@ -53,7 +53,9 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; // 비밀번호 만료 여부 (기본 true)
+        // 소셜 전용 계정은 저장된 해시가 있어도 비밀번호 인증을 허용하지 않는다.
+        // 작성자: 김순민 / 작성일: 2026-11-13
+        return member.getProvider() == null || member.getProvider().isBlank();
     }
 
     @Override

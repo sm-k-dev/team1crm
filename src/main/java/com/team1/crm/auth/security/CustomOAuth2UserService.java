@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Service;
+import org.springframework.security.oauth2.core.OAuth2Error;
 
 import java.util.Collections;
 
@@ -51,17 +52,33 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     /**
-     * 구글 사용자 정보가 이미 DB에 있으면 유지, 없으면 새로 회원가입 처리
+     * 제공자·고유 ID로 기존 회원을 찾고 이메일만 같은 계정은 자동 연결하지 않는다.
+     * 작성자: 김순민 / 작성일: 2026-11-13
      */
-    private Member saveOrUpdate(OAuthAttributes attributes, String registrationId) {
-        Member member = memberRepository.findByEmail(attributes.getEmail())
-                .map(entity -> entity)
-                .orElseGet(() -> {
-                    Member newMember = attributes.toEntity();
-                    newMember.linkSocial(registrationId, attributes.getAttributes().get(attributes.getNameAttributeKey()).toString());
-                    return memberRepository.save(newMember);
-                });
-
-        return member;
+    // 작성자: 김순민 / 작성일: 2026-11-13
+    Member saveOrUpdate(OAuthAttributes attributes, String registrationId) {
+        Object subject = attributes.getAttributes().get(attributes.getNameAttributeKey());
+        if (subject == null || subject.toString().isBlank()
+                || attributes.getEmail() == null || attributes.getEmail().isBlank()) {
+            throw new OAuth2AuthenticationException(new OAuth2Error("invalid_user_info"),
+                    "Google 계정 식별 정보를 확인할 수 없습니다.");
+        }
+        String providerId = subject.toString();
+        Member linked = memberRepository.findByProviderAndProviderId(registrationId, providerId).orElse(null);
+        if (linked != null) {
+            // 현재 화면 인증 객체는 Google 이메일을 사용하므로 불일치는 자동 갱신하지 않는다.
+            if (!linked.getEmail().equalsIgnoreCase(attributes.getEmail())) {
+                throw new OAuth2AuthenticationException(new OAuth2Error("social_email_changed"),
+                        "Google 계정 이메일이 변경되었습니다. 계정 연결 정보를 확인해 주세요.");
+            }
+            return linked;
+        }
+        if (memberRepository.existsByEmail(attributes.getEmail())) {
+            throw new OAuth2AuthenticationException(new OAuth2Error("account_link_required"),
+                    "이미 가입된 이메일입니다. 기존 가입 방식으로 로그인해 주세요.");
+        }
+        Member member = attributes.toEntity();
+        member.linkSocial(registrationId, providerId);
+        return memberRepository.save(member);
     }
 }
