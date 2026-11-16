@@ -34,8 +34,8 @@
     </div>
     <div class="col-md-3">
       <label class="form-label" for="password">초기 비밀번호</label>
-      <input class="form-control" id="password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required/>
-      <div class="form-text">8~128자로 입력해 주세요.</div>
+      <input class="form-control" id="password" name="password" type="password" minlength="8" maxlength="20" autocomplete="new-password" required/>
+      <div class="form-text">8~20자, 영문·숫자·특수문자를 각각 포함하고 공백 없이 입력해 주세요.</div>
       <div class="text-danger small" th:errors="*{password}"></div>
     </div>
     <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary" type="submit">계정 등록</button></div>
