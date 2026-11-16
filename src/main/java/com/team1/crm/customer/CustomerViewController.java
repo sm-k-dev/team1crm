@@ -4,6 +4,8 @@ import com.team1.crm.auth.Member;
 import com.team1.crm.auth.Store;
 import com.team1.crm.auth.StoreService;
 import com.team1.crm.auth.security.LoginMember;
+import com.team1.crm.loyalty.LoyaltyDetail;
+import com.team1.crm.loyalty.LoyaltyDetailService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -33,6 +35,7 @@ public class CustomerViewController {
 
     private final CustomerService customerService;
     private final StoreService storeService;
+    private final LoyaltyDetailService loyaltyDetailService;
 
     /**
      * 로그인 회원의 매장 소유권을 확인한 후 고객을 소프트 삭제한다.
@@ -308,6 +311,15 @@ public class CustomerViewController {
 
         model.addAttribute("selectedStore", selectedStore);
         model.addAttribute("customer", customer);
+
+        // 방문·포인트·쿠폰 영역(loyalty 조각)에 필요한 값. 작성자: 이재준
+        LoyaltyDetail loyalty = loyaltyDetailService.getDetail(selectedStore.getId(), customer.getId());
+        model.addAttribute("customerId", customer.getId());
+        model.addAttribute("visits", loyalty.visits());
+        model.addAttribute("visitCount", loyalty.visitCount());
+        model.addAttribute("coupons", loyalty.coupons());
+        model.addAttribute("pointBalance", loyalty.pointBalance());
+        model.addAttribute("pointHistory", loyalty.pointHistory());
 
         return "customer/detail";
     }
