@@ -57,8 +57,11 @@ public class SecurityConfig {
                                 "/",
                                 "/login",
                                 "/signup",
+                                "/forgot-password",  // [2026-11-16 / 황현우] 비로그인 회원도 비밀번호 찾기·재설정 이용 가능
+                                "/reset-password",
                                 "/api/members/signup",
                                 "/api/members/check-email",
+                                "/api/members/check-nickname", // [2026-11-16 / 황현우] 회원가입 전 닉네임 중복확인 API 공개
                                 "/css/**",
                                 "/js/**",
                                 "/images/**",
