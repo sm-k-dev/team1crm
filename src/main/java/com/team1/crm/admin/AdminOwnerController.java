@@ -98,6 +98,11 @@ public class AdminOwnerController {
 
     /** 중복 오류를 해당 필드에 표시한다. 작성자: 김순민 / 작성일: 2026-11-11 */
     private void rejectDuplicate(BindingResult errors, String field) {
+        // 공통 비밀번호 정책 위반도 초기 비밀번호 필드에 표시한다. 작성자: 김순민 / 작성일: 2026-11-16
+        if ("password".equals(field)) {
+            errors.rejectValue("password", "policy", "비밀번호는 8~20자이며 영문·숫자·특수문자를 각각 포함하고 공백 없이 입력해 주세요.");
+            return;
+        }
         if (!"email".equals(field) && !"nickname".equals(field)) throw new IllegalArgumentException("알 수 없는 중복 필드");
         errors.rejectValue(field, "duplicate", "email".equals(field) ? "이미 가입된 이메일입니다." : "이미 사용 중인 이름입니다.");
     }

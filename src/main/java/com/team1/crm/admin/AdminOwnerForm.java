@@ -18,6 +18,11 @@ public class AdminOwnerForm {
     private String nickname;
 
     @NotBlank(message = "초기 비밀번호를 입력해 주세요.")
-    @Size(min = 8, max = 128, message = "초기 비밀번호는 8~128자로 입력해 주세요.")
+    @com.team1.crm.auth.SharedPassword
     private String password;
+
+    /** 일반 가입·재설정과 같은 이메일 형식으로 저장한다. 작성자: 김순민 / 작성일: 2026-11-16 */
+    public void setEmail(String email) {
+        this.email = com.team1.crm.auth.EmailAddress.normalize(email);
+    }
 }

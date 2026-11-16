@@ -14,10 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminOwnerService {
     private final AdminOwnerRepository repository;
     private final PasswordEncoder passwordEncoder;
+    private final com.team1.crm.auth.MemberRepository members;
 
     /** 이메일과 이름의 중복 필드를 반환한다. 중복이 없으면 null이다. 작성자: 김순민 / 작성일: 2026-11-11 */
     public String duplicateField(AdminOwnerForm form) {
-        if (repository.existsByEmail(form.getEmail().strip())) return "email";
+        if (members.existsByNormalizedEmail(com.team1.crm.auth.EmailAddress.normalize(form.getEmail()))) return "email";
         if (repository.existsByNickname(form.getNickname().strip())) return "nickname";
         return null;
     }
@@ -27,7 +28,11 @@ public class AdminOwnerService {
     public Long create(AdminOwnerForm form) {
         String duplicate = duplicateField(form);
         if (duplicate != null) throw new IllegalArgumentException(duplicate);
-        Member member = new Member(form.getEmail().strip(), passwordEncoder.encode(form.getPassword()),
+        // Form을 거치지 않는 호출도 공통 정책을 우회하지 못하게 한다.
+        // 작성자: 김순민 / 작성일: 2026-11-16
+        try { com.team1.crm.auth.PasswordPolicy.validate(form.getPassword()); }
+        catch (IllegalArgumentException exception) { throw new IllegalArgumentException("password"); }
+        Member member = new Member(com.team1.crm.auth.EmailAddress.normalize(form.getEmail()), passwordEncoder.encode(form.getPassword()),
                 form.getNickname().strip(), Role.USER);
         return repository.saveAndFlush(member).getId();
     }

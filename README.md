@@ -77,6 +77,8 @@ IntelliJ 실행 설정 또는 실행 프로세스의 환경변수에 입력합�
 | `DB_USERNAME`, `DB_PASSWORD` | 선택한 DB에 접근 가능한 MySQL 계정·비밀번호 |
 | `JWT_SECRET` | 현재 구현은 UTF-8 바이트를 사용. 최소 32바이트 이상의 무작위 JWT 서명 키 |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google에서 함께 발급한 OAuth ID·Secret. 현재 공통 설정에서 참조하므로 실행 환경에 제공 |
+| `MAIL_USERNAME`, `MAIL_APP_PASSWORD` | 비밀번호 재설정 메일을 발송할 Gmail 계정·앱 비밀번호. 공통 설정에서 참조하므로 실행 환경에 제공 |
+| `APP_BASE_URL` | 재설정 링크의 서비스 주소. dev 기본 `http://localhost:8082`, prod는 필수 지정 |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | AI 기능 사용 시 설정하는 키·모델 |
 | `CUSTOMER_PRIVACY_ENABLED` | 3개월 경과 고객 정보 제거 배치 활성화. 기본 `false` |
 | `CUSTOMER_PRIVACY_CRON` | 기본 `0 0 3 * * *`, 한국 시간 매일 03시 |
@@ -118,6 +120,9 @@ SQL 초기화는 자동 실행하지 않습니다. 더미 데이터가 필요하
 | [고객 개인정보 처리](docs/sql/customer_privacy_migration.sql) | `deleted_at`, `anonymized_at`, `phone` NULL 허용 |
 | [다중 매장 소유](docs/sql/store_multi_owner_migration.sql) | `store.member_id` 단일 UNIQUE 제거, 일반 인덱스·외래키 유지 |
 | [매장 폐업](docs/sql/store_closure_migration.sql) | `store.closed_at` |
+
+비밀번호 재설정에는 `password_reset_tokens` 테이블도 필요합니다. 개발의 `update`와 운영의 사전 스키마 적용을 구분하고,
+토큰 해시·회원 외래키·생성/만료/사용 시각을 현재 엔티티와 대조합니다.
 
 운영은 `SPRING_PROFILES_ACTIVE=prod`와 `DB_URL` 등 환경변수를 지정합니다.
 `prod`는 `ddl-auto=validate`이므로 DB 스키마를 미리 준비해야 합니다.
@@ -177,7 +182,7 @@ deploy/             배포 설정·스크립트
 ## 통합·검증이 남은 범위
 
 - 방문·포인트·쿠폰 서비스와 API는 담당 브랜치에서 통합했습니다. 실제 거래 호출·동시성·롤백과 고객 상세 화면 연동은 별도 검증 대상입니다.
-- 아이디 찾기·비밀번호 재설정·비밀번호 조합·이메일 인증 추가 요구와 ADMIN 공통 인증 정책 연동은 담당자 작업 및 통합 확인 대상입니다.
+- 공통 비밀번호 정책과 비밀번호 재설정·닉네임 중복 확인을 통합하고, ADMIN 생성 계정의 공통 정책·재설정 연동을 테스트했습니다. 실제 SMTP 수신·EC2 검증은 별도입니다. 아이디 찾기·가입 이메일 인증의 완료 여부는 추가 확인 대상입니다.
 - 승인·반려·정지·재활성화는 범위·상태 모델을 추가 협의합니다.
 - 운영 프로필, 실보안 필터·CSRF, 폐업과 신규 거래의 동시 처리, 배포 스모크 테스트를 별도로 확인합니다.
 - AI 결과는 외부 모델의 가용성·요청 제한에 영향을 받습니다.
@@ -189,5 +194,6 @@ deploy/             배포 설정·스크립트
 - [ADMIN 관리 검증](docs/architecture/08_ADMIN_매장_관리_검증.md) / [홈 집계](docs/architecture/09_홈_요약_연동.md)
 - [폐업 정책·검증](docs/architecture/10_매장_폐업_정책.md) / [본인 정보·매장 수정](docs/architecture/11_본인_정보와_매장_수정.md)
 - [Git 커밋 규칙 초안](docs/team-proposals/common/04_GIT_커밋_규칙.md)
+- [ADMIN 공통 인증 정책 연동](docs/architecture/13_ADMIN_공통_인증_연동.md)
 
 설계의 목표 범위와 실제 구현·검증 범위는 구분합니다. 과거 Starter·Reference 문서에는 초기 설명이 남아 있을 수 있습니다.
