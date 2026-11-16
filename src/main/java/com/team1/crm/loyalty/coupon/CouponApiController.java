@@ -10,13 +10,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 쿠폰 발급과 사용 API.
- * 명세: POST /api/customers/{id}/coupons (발급 → couponId),
- *       POST /api/coupons/{id}/redeem (사용 → usedAt)
+ * 쿠폰 발급 API. 명세: POST /api/customers/{id}/coupons (발급 → couponId)
+ * 쿠폰 사용은 별도 API 없이 방문 등록(couponId)에서만 한다.
  *
  * 작성자: 이재준
  */
@@ -37,16 +35,5 @@ public class CouponApiController {
         Store store = storeService.findOwnedStore(member.getId(), storeId);
         Long couponId = couponService.issue(store.getId(), customerId, form);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("couponId", couponId));
-    }
-
-    @PostMapping("/api/coupons/{couponId}/redeem")
-    public Map<String, LocalDateTime> redeem(
-            @LoginMember Member member,
-            @PathVariable("couponId") Long couponId,
-            @RequestParam("storeId") Long storeId) {
-
-        Store store = storeService.findOwnedStore(member.getId(), storeId);
-        LocalDateTime usedAt = couponService.redeem(store.getId(), couponId);
-        return Map.of("usedAt", usedAt);
     }
 }
