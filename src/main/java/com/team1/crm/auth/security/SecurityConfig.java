@@ -12,6 +12,13 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+
+import jakarta.servlet.DispatcherType;
+
 /**
  * + Spring Security 보안 및 인증 설정
  * 역할: 회원 로그인, Google OAuth2 로그인, JWT 인증,
@@ -34,6 +41,74 @@ public class SecurityConfig {
     private final CustomUserDetailsService customUserDetailsService;
 
     /**
+     * + Bearer JWT API 전용 보안 설정
+     * 역할: Bearer 토큰을 사용하는 API 요청을 일반 웹 세션과 분리하여 인증한다.
+     *       웹 CSRF 보호는 유지하면서 JWT 전용 요청에는 CSRF 검사를 적용하지 않는다.
+     *
+     * 작성자: 황현우
+     * 일시: 2026-11-16
+     */
+    @Bean
+    @Order(1)
+    public SecurityFilterChain jwtApiFilterChain(HttpSecurity http)
+            throws Exception {
+
+        http
+                // 1. Bearer 헤더가 있는 비공개 API 요청만 JWT 체인으로 분리
+                .securityMatcher(request -> {
+                    String path = request.getServletPath();
+                    String authorization = request.getHeader("Authorization");
+
+                    boolean publicAuthApi =
+                            path.equals("/api/members/login")
+                                    || path.equals("/api/members/signup")
+                                    || path.equals("/api/members/check-email")
+                                    || path.equals("/api/members/check-nickname");
+
+                    return path.startsWith("/api/")
+                            && !publicAuthApi
+                            && authorization != null
+                            && authorization.startsWith("Bearer ")
+                            && authorization.length() > 7;
+                })
+
+                // 2. JWT 전용 요청에만 CSRF 검사 제외
+                .csrf(AbstractHttpConfigurer::disable)
+
+                // 3. 기존 웹 로그인 세션을 인증에 사용하지 않음
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                // 4. JWT로 인증된 회원만 접근 허용
+                .authorizeHttpRequests(auth -> auth
+
+                        // 관리자 전용 API
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // 그 외 JWT API는 인증된 회원만 접근
+                        .anyRequest().authenticated()
+                )
+
+                // 5. 미인증 요청은 로그인 화면이 아니라 401 응답
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(
+                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+                        )
+                )
+
+                // 6. 기존 JWT 인증 필터 사용
+                .addFilterBefore(
+                        new JwtAuthenticationFilter(
+                                jwtTokenProvider,
+                                customUserDetailsService
+                        ),
+                        UsernamePasswordAuthenticationFilter.class
+                );
+
+        return http.build();
+    }
+    /**
      * + Spring Security 필터 체인 설정
      * 역할: HTTP 요청에 대한 보안 정책과 로그인 및 인증 방식을 설정합니다.
      */
@@ -52,6 +127,12 @@ public class SecurityConfig {
 
                 // URL별 접근 권한 설정
                 .authorizeHttpRequests(auth -> auth
+
+                        // [2026-11-16 / 황현우]
+                        // 오류 처리 요청(ERROR)은 로그인 화면으로 보내지 않고
+                        // 원래 HTTP 오류 상태를 반환할 수 있도록 허용
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+
                         // 로그인 없이 접근 가능한 페이지 및 리소스
                         .requestMatchers(
                                 "/",

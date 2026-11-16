@@ -5,6 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.List;
 
 /**
@@ -29,12 +32,12 @@ public class StoreService {
     /**
      * + 새로운 매장 등록
      * 역할: 로그인한 회원을 이메일로 조회하고 매장 정보를 검증한 뒤,
-     *      Store 객체를 생성하여 데이터베이스에 저장합니다.
+     * Store 객체를 생성하여 데이터베이스에 저장합니다.
      *
-     * @param email 로그인한 회원의 이메일
-     * @param name 매장 이름
-     * @param category 매장 업종
-     * @param address 매장 주소
+     * @param email     로그인한 회원의 이메일
+     * @param name      매장 이름
+     * @param category  매장 업종
+     * @param address   매장 주소
      * @param pointRate 포인트 적립률
      * @return 데이터베이스에 저장된 Store 객체
      */
@@ -99,52 +102,104 @@ public class StoreService {
     /**
      * + 로그인한 회원의 매장 목록 조회
      * 역할: 회원 이메일을 이용하여 회원 정보를 조회한 뒤,
-     *      해당 회원이 소유한 모든 매장 목록을 반환합니다.
+     *       해당 회원이 소유한 모든 매장 목록을 반환합니다.
      *
      * @param email 로그인한 회원의 이메일
      * @return 해당 회원이 소유한 매장 목록
+     *
+     * 작성자: 황현우
+     * 일시: 2026-11-09
      */
-    @Transactional(readOnly = true)  // 조회 전용 트랜잭션으로 실행
+    @Transactional(readOnly = true)
     public List<Store> getMyStores(String email) {
 
         // 1. 로그인한 회원을 이메일로 조회
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        // 회원 정보가 존재하지 않으면 예외 발생
-                        new IllegalArgumentException("회원 정보를 찾을 수 없습니다.")
+                        new IllegalArgumentException(
+                                "회원 정보를 찾을 수 없습니다."
+                        )
                 );
+
         // 2. 조회한 회원의 ID를 이용하여 소유한 매장 목록 조회
         // 3. 조회된 매장 목록을 List<Store> 형태로 반환
         return storeRepository.findByOwnerId(member.getId());
     }
 
+
+
     /**
-     * 로그인한 회원이 소유한 매장을 조회한다.
-     * 계정·매장 승인 및 정지 상태 검증은 상태 모델 구현 후 추가해야 한다.
+     * + 로그인 회원의 소유 매장 조회 및 접근 권한 검증
+     * <p>
+     * 역할: 로그인한 회원의 ID와 요청한 매장 ID를 비교하여
+     * 해당 회원이 소유한 매장에만 접근하도록 제한합니다.
+     * <p>
+     * [기존 기능]
+     * - 로그인 회원 ID와 매장 ID의 유효성을 검사합니다.
+     * - 매장 ID와 소유자 ID가 모두 일치하는 매장을 조회합니다.
+     * - 본인 소유 매장이 아니면 접근을 거부합니다.
+     * <p>
+     * [2026-11-16 개선 사항]
+     * - 기존에는 조회 실패 시 IllegalArgumentException으로 처리했습니다.
+     * - 매장 자체가 존재하지 않는 경우 404 Not Found를 반환합니다.
+     * - 매장은 존재하지만 다른 회원 소유인 경우 403 Forbidden을 반환합니다.
+     * - 정상적인 본인 매장 접근은 기존과 동일하게 유지합니다.
+     * <p>
+     * 계정·매장 승인 및 정지 상태 검증은 상태 모델 구현 후 추가해야 합니다.
      *
      * @param memberId 인증 정보에서 확인한 로그인 회원의 ID
-     * @param storeId 조회할 매장의 ID
-     * @return 로그인 회원이 소유한 매장
-     * @throws IllegalArgumentException ID가 잘못되었거나 소유 매장을 찾을 수 없는 경우
+     * @param storeId  조회할 매장의 ID
+     * @return 로그인 회원이 소유한 Store 객체
+     * @throws IllegalArgumentException 회원 ID 또는 매장 ID가 유효하지 않은 경우
+     * @throws ResponseStatusException 매장이 없으면 404, 다른 회원 소유이면 403
      *
-     * 작성자: 김순민
-     * 작성일: 2026-11-10
+     * 최초 작성자: 김순민
+     * 최초 작성일: 2026-11-10
+     * 수정자: 황현우
+     * 수정일: 2026-11-16
+     * 수정 내용: 매장 접근 오류를 HTTP 403과 404로 구분
      */
     @Transactional(readOnly = true)
     public Store findOwnedStore(Long memberId, Long storeId) {
+
+        // 1. 회원 ID 검증
+        // 회원 ID가 없거나 0 이하라면 잘못된 입력값으로 판단
         if (memberId == null || memberId <= 0) {
-            throw new IllegalArgumentException("회원 정보를 확인해 주세요.");
+            throw new IllegalArgumentException(
+                    "회원 정보를 확인해 주세요."
+            );
         }
 
+        // 2. 매장 ID 검증
+        // 매장 ID가 없거나 0 이하라면 잘못된 입력값으로 판단
         if (storeId == null || storeId <= 0) {
-            throw new IllegalArgumentException("매장 정보를 확인해 주세요.");
+            throw new IllegalArgumentException(
+                    "매장 정보를 확인해 주세요."
+            );
         }
 
+        // 3. 본인 소유 매장 조회
+        // 매장 ID와 회원 ID가 모두 일치해야 조회에 성공
         return storeRepository.findByIdAndOwner_Id(storeId, memberId)
-                .orElseThrow(
-                        () -> new IllegalArgumentException(
-                                "접근 가능한 매장을 찾을 수 없습니다."
-                        )
-                );
+                .orElseThrow(() -> {
+
+                    // [2026-11-16 / 황현우]
+                    // 4. 매장이 실제로 존재하는지 추가 확인
+                    // 매장 자체가 없다면 404 Not Found 반환
+                    if (!storeRepository.existsById(storeId)) {
+                        return new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "매장을 찾을 수 없습니다."
+                        );
+                    }
+
+                    // [2026-11-16 / 황현우]
+                    // 5. 매장은 존재하지만 조회한 회원의 소유가 아님
+                    // 접근 권한이 없으므로 403 Forbidden 반환
+                    return new ResponseStatusException(
+                            HttpStatus.FORBIDDEN,
+                            "다른 회원의 매장에 접근할 권한이 없습니다."
+                    );
+                });
     }
 }
