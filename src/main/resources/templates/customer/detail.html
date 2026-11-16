@@ -57,60 +57,19 @@
         </div>
     </div>
 <div class="d-flex gap-3 text-center">
-<div><div class="fs-3 fw-bold text-primary">0</div><div class="small text-muted">방문</div></div>
+<div><div class="fs-3 fw-bold text-primary" th:text="${#numbers.formatInteger(visitCount, 1, 'COMMA')}">0</div><div class="small text-muted">방문</div></div>
 <!--/* #numbers.formatInteger(값, 최소자리수, 'COMMA') : 1234 → "1,234" */-->
-<div><div class="fs-3 fw-bold text-success">0P</div><div class="small text-muted">포인트</div></div>
+<div><div class="fs-3 fw-bold text-success" th:text="${#numbers.formatInteger(pointBalance, 1, 'COMMA')} + 'P'">0P</div><div class="small text-muted">포인트</div></div>
 </div>
 </div></div>
 <div class="row g-4">
 <div class="col-lg-6">
-<div class="card mb-4"><div class="card-header fw-bold"><i class="bi bi-receipt"></i> 방문 등록</div><div class="card-body">
-<form class="row g-2" data-demo-only="true" id="visitForm" onsubmit="return false;">
-<div class="col-6"><input class="form-control" id="vAmount" min="0" placeholder="결제 금액(원)" required="" step="100" type="number"/></div>
-<div class="col-6"><input class="form-control" id="vPoint" min="0" placeholder="사용 포인트" type="number" value="0"/></div>
-<div class="col-12"><input class="form-control" id="vMemo" maxlength="200" placeholder="메뉴 메모"/></div>
-<div class="col-12"><button class="btn btn-primary btn-sm" title="UI preview only — backend implementation pending" type="button">등록 (적립률은 매장 설정)</button></div>
-</form>
-</div></div>
-<div class="card mb-4"><div class="card-header fw-bold">최근 방문</div>
-<ul class="list-group list-group-flush">
-<li class="list-group-item d-flex justify-content-between">
-<span><span>날짜</span> <small class="text-muted">메뉴</small></span>
-<span>0원</span>
-</li>
-<li class="list-group-item text-muted">방문 기록이 없습니다.</li>
-</ul>
-</div>
+<section th:replace="~{loyalty/_visit :: visitPanel}"></section>
+<section th:replace="~{loyalty/_visit :: visitHistory}"></section>
 </div>
 <div class="col-lg-6">
-<div class="card mb-4"><div class="card-header fw-bold"><i class="bi bi-ticket-perforated"></i> 쿠폰</div><div class="card-body">
-<form class="row g-2 mb-3" data-demo-only="true" id="couponForm" onsubmit="return false;">
-<div class="col-12"><input class="form-control" id="cpTitle" maxlength="50" placeholder="쿠폰 이름 (예: 음료 1잔 할인)" required=""/></div>
-<div class="col-6"><input class="form-control" id="cpDiscount" min="100" placeholder="할인 금액" required="" step="100" type="number"/></div>
-<div class="col-6"><input class="form-control" id="cpExpire" required="" type="date"/></div>
-<div class="col-12"><button class="btn btn-outline-primary btn-sm" title="UI preview only — backend implementation pending" type="button">발급</button></div>
-</form>
-<ul class="list-group">
-<!--/* cp.status : Coupon.getStatus() → 사용 가능 / 사용함 / 기한 지남 */-->
-<li class="list-group-item d-flex justify-content-between align-items-center">
-<span><strong>쿠폰</strong> <small class="text-muted">할인</small></span>
-<span>
-<span class="badge">상태</span>
-<button class="btn btn-sm btn-outline-success ms-1 btn-use">사용</button>
-</span>
-</li>
-<li class="list-group-item text-muted">쿠폰이 없습니다.</li>
-</ul>
-</div></div>
-<div class="card mb-4"><div class="card-header fw-bold">포인트 내역</div>
-<ul class="list-group list-group-flush">
-<li class="list-group-item d-flex justify-content-between">
-<span>날짜</span>
-<!--/* p.type.displayName : PointType.getDisplayName() → 적립 / 사용 */-->
-<span>적립</span>
-</li>
-</ul>
-</div>
+<section th:replace="~{loyalty/_coupon :: couponPanel}"></section>
+<section th:replace="~{loyalty/_point :: pointPanel}"></section>
 </div>
 </div>
 <div class="d-flex gap-2">

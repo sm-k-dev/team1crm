@@ -4,6 +4,8 @@ import com.team1.crm.auth.Member;
 import com.team1.crm.auth.Store;
 import com.team1.crm.auth.StoreService;
 import com.team1.crm.auth.security.LoginMember;
+import com.team1.crm.loyalty.LoyaltyDetail;
+import com.team1.crm.loyalty.LoyaltyDetailService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -39,6 +41,7 @@ class CustomerViewControllerTest {
     private MockMvc mvc;
     private CustomerService customers;
     private StoreService stores;
+    private LoyaltyDetailService loyaltyDetails;
     private Member member;
     private Store store;
     private Customer customer;
@@ -68,6 +71,7 @@ class CustomerViewControllerTest {
     void setUp() {
         customers = mock(CustomerService.class);
         stores = mock(StoreService.class);
+        loyaltyDetails = mock(LoyaltyDetailService.class);
         member = mock(Member.class);
         store = mock(Store.class);
         customer = mock(Customer.class);
@@ -83,6 +87,7 @@ class CustomerViewControllerTest {
         when(stores.getMyStores("owner@test.invalid")).thenReturn(List.of(store));
         when(stores.findOwnedStore(10L, 900101L)).thenReturn(store);
         when(customers.findCustomer(900101L, 100L)).thenReturn(customer);
+        when(loyaltyDetails.getDetail(900101L, 100L)).thenReturn(LoyaltyDetail.empty());
         when(customers.findCustomerPage(eq(900101L), nullable(String.class), anyInt()))
                 .thenReturn(new PageImpl<>(List.of(customer)));
 
@@ -92,7 +97,7 @@ class CustomerViewControllerTest {
         views.setPrefix("/templates/");
         views.setSuffix(".html");
 
-        mvc = standaloneSetup(new CustomerViewController(customers, stores))
+        mvc = standaloneSetup(new CustomerViewController(customers, stores, loyaltyDetails))
                 .setValidator(validator)
                 .setViewResolvers(views)
                 .setCustomArgumentResolvers(new HandlerMethodArgumentResolver() {

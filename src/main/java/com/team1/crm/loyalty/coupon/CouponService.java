@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 쿠폰 발급, 목록 조회, 사용(redeem)을 처리한다.
- * 사용 처리는 CouponRepository.markUsed의 조건부 UPDATE로 중복 사용을 막는다.
+ * 쿠폰 발급, 목록 조회, 방문 등록 중 쿠폰 사용을 처리한다.
+ * 쿠폰 사용은 방문 등록(VisitService)에서만 일어나며, CouponRepository.markUsed의 조건부 UPDATE로 중복 사용을 막는다.
  *
  * 작성자: 이재준
  */
@@ -45,28 +45,32 @@ public class CouponService {
     }
 
     /**
-     * 쿠폰을 사용 처리하고 사용 일시를 돌려준다.
-     * 소유 확인 → 조건부 UPDATE → 0행이면 이유를 찾아 예외로 알린다.
+     * 방문 등록과 함께 쿠폰을 사용 처리하고 할인액을 돌려준다.
+     * 호출한 방문 등록 트랜잭션에 합류하므로, 이후 단계가 실패하면 쿠폰 사용도 함께 취소된다.
+     *
+     * @throws IllegalArgumentException 쿠폰이 없거나 이 고객의 쿠폰이 아니거나, 이미 사용했거나 기한이 지난 경우
      */
     @Transactional
-    public LocalDateTime redeem(Long storeId, Long couponId) {
+    public int useForVisit(Long customerId, Long couponId) {
         Coupon coupon = couponRepository.findById(couponId)
                 .orElseThrow(() -> new IllegalArgumentException("쿠폰을 찾을 수 없습니다."));
+        if (!coupon.getCustomer().getId().equals(customerId)) {
+            throw new IllegalArgumentException("이 고객의 쿠폰이 아닙니다.");
+        }
 
-        // 쿠폰이 이 매장 고객의 것인지 확인 (다른 매장 쿠폰이면 여기서 예외)
-        Long customerId = coupon.getCustomer().getId();
-        customerService.findCustomer(storeId, customerId);
-
-        LocalDateTime now = LocalDateTime.now();
-        int updated = couponRepository.markUsed(couponId, customerId, now, LocalDate.now());
+        // 조건부 UPDATE: "미사용 + 기한 내 + 같은 고객"일 때만 사용 처리한다.
+        // 확인과 변경이 DB에서 한 문장이라 동시에 두 요청이 와도 한쪽만 1행을 바꾼다.
+        int updated = couponRepository.markUsed(coupon.getId(), customerId, LocalDateTime.now(), LocalDate.now());
         if (updated == 1) {
-            return now;
+            return coupon.getDiscount();
         }
 
-        // 갱신되지 않은 이유를 알려 준다 (이 시점의 엔티티 값으로 판단)
-        if (coupon.getUsedAt() != null) {
-            throw new IllegalArgumentException("이미 사용한 쿠폰입니다.");
+        // 갱신되지 않은 이유를 알려 준다.
+        // usedAt은 동시 요청이 방금 커밋한 값을 못 볼 수 있어서(읽기 시점의 스냅샷), 바뀌지 않는 만료일로 먼저 판단한다.
+        // 만료되지 않았는데 갱신이 0행이면 이미 다른 요청이 사용 처리한 쿠폰이다.
+        if (coupon.getExpiresAt().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("기한이 지난 쿠폰입니다.");
         }
-        throw new IllegalArgumentException("기한이 지난 쿠폰입니다.");
+        throw new IllegalArgumentException("이미 사용한 쿠폰입니다.");
     }
 }

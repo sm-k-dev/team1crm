@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 
@@ -19,6 +20,7 @@ public class CouponForm {
     private Integer discount;      // 할인 금액(원)
 
     @NotNull
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) // HTML date 값("2026-12-31")을 받기 위함
     private LocalDate expiresAt;   // 만료일
 
     public String getTitle() { return title; }

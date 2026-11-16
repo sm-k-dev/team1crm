@@ -44,13 +44,6 @@ public class Coupon {
         this.expiresAt = expiresAt;
     }
 
-    // 호출: CouponService.use(). 이미 썼거나 기한이 지났으면 예외 → 400
-    public void use() {
-        if (usedAt != null) throw new IllegalArgumentException("이미 사용한 쿠폰입니다.");
-        if (expiresAt.isBefore(LocalDate.now())) throw new IllegalArgumentException("기한이 지난 쿠폰입니다.");
-        this.usedAt = LocalDateTime.now();
-    }
-
     // 화면 표시용 상태 (타임리프 ${cp.status})
     public String getStatus() {
         if (usedAt != null) return "사용함";

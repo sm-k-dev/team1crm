@@ -16,10 +16,8 @@
 | GET | `/api/stores/me` | OWNER | - | store profile | 황현우 |
 | GET/POST | `/api/customers` | OWNER | query / customer form | store-scoped result | 김순민 |
 | GET/PATCH/DELETE | `/api/customers/{id}` | OWNER | customer update | own-store customer | 김순민 |
-| POST | `/api/customers/{id}/visits` | OWNER | amount,visitedAt | visitId,earnedPoints | 이재준 |
-| POST | `/api/customers/{id}/points/use` | OWNER | points | balance,historyId | 이재준 |
+| POST | `/api/customers/{id}/visits` | OWNER | amount(할인 전),visitedAt,menuMemo,couponId(선택),usedPoints(선택) | visitId,earnedPoints,discountAmount,usedPoints,paidAmount | 이재준 |
 | POST | `/api/customers/{id}/coupons` | OWNER | title,discount,expiresAt | couponId | 이재준 |
-| POST | `/api/coupons/{id}/redeem` | OWNER | - | usedAt | 이재준 |
 | GET | `/api/analytics/summary` | OWNER | range | aggregated revenue/visits | 한상희 |
 | GET | `/api/analytics/rfm` | OWNER | range | segments/counts | 한상희 |
 | POST | `/api/ai/marketing-suggestions` | OWNER | aggregate metrics only | 3 suggestions | 한상희 |
