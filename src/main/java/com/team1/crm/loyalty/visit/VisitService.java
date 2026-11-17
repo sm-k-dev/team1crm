@@ -1,5 +1,6 @@
 package com.team1.crm.loyalty.visit;
 
+import com.team1.crm.auth.StoreService;
 import com.team1.crm.customer.Customer;
 import com.team1.crm.customer.CustomerService;
 import com.team1.crm.loyalty.coupon.CouponService;
@@ -30,6 +31,7 @@ public class VisitService {
     private final PointHistoryRepository pointHistoryRepository;
     private final CouponService couponService;
     private final PointService pointService;
+    private final StoreService storeService;
 
     /**
      * 고객의 방문을 등록한다. 결제 금액 계산 순서는 다음과 같다.
@@ -40,6 +42,7 @@ public class VisitService {
      * @param form       검증을 마친 방문 입력값 (결제 금액은 할인 전 금액)
      * @return 방문 ID, 적립 포인트, 쿠폰 할인액, 사용 포인트, 실제 결제 금액
      * @throws IllegalArgumentException 해당 매장의 고객이 아니거나, 쿠폰을 쓸 수 없거나, 포인트가 부족한 경우
+     * @throws org.springframework.web.server.ResponseStatusException 폐업 매장이면 409
      */
     @Transactional
     public VisitResult register(Long storeId, Long customerId, VisitForm form) {
@@ -49,7 +52,11 @@ public class VisitService {
             throw new IllegalArgumentException("사용 포인트는 0 이상이어야 합니다.");
         }
 
-        // 0) 포인트를 쓰는 경우 고객 행을 먼저 잠근다. 잔액은 잠근 뒤에 읽어야 최신 값이 보인다 (PointService 참고)
+        // 0-1) 매장을 잠그고 영업 중인지 확인한다 (폐업 처리와 신규 거래가 동시에 실행되지 않도록).
+        //      잠금 순서는 폐업 처리와 같은 "매장 → 고객"이어야 서로 기다리는 교착 상태가 생기지 않는다
+        storeService.lockOpenStore(storeId);
+
+        // 0-2) 포인트를 쓰는 경우 고객 행을 먼저 잠근다. 잔액은 잠근 뒤에 읽어야 최신 값이 보인다 (PointService 참고)
         if (usedPoints > 0) {
             pointService.lockCustomer(customerId);
         }
