@@ -29,7 +29,8 @@
         <label class="form-label" for="visitUsedPoints">사용 포인트 <small class="text-muted">(보유 <span th:text="${#numbers.formatInteger(pointBalance != null ? pointBalance : 0, 1, 'COMMA')}">0</span>P)</small></label>
         <input id="visitUsedPoints" name="usedPoints" class="form-control" type="number" min="0" step="1" th:max="${pointBalance}" placeholder="0" />
       </div>
-      <div class="col-12"><label class="form-label" for="visitMemo">방문 메모</label><input id="visitMemo" name="menuMemo" class="form-control" maxlength="200" /></div>
+      <div class="col-12"><label class="form-label" for="visitMemo">방문 메모</label><input id="visitMemo" name="menuMemo" class="form-control" maxlength="200" />
+        <div class="form-text">고객 이름·전화번호 같은 개인정보는 적지 마세요. 고객 정보가 파기되면 이 메모도 함께 삭제됩니다.</div></div>
       <div class="col-12"><button class="btn btn-primary btn-sm" type="submit">방문 등록</button></div>
     </form>
     <p class="small text-muted mt-2 mb-0">결제 금액에서 <strong>쿠폰 할인</strong>과 <strong>사용 포인트(1P = 1원)</strong>를 뺀 금액이 실제 결제 금액이 되고, 이 금액 × 매장 적립률(소수점 첫째 자리 반올림)로 적립합니다. 방문 일시를 비우면 현재 시각으로 등록됩니다.</p>

@@ -1,5 +1,6 @@
 package com.team1.crm.loyalty.coupon;
 
+import com.team1.crm.auth.StoreService;
 import com.team1.crm.customer.Customer;
 import com.team1.crm.customer.CustomerService;
 import lombok.RequiredArgsConstructor;
@@ -23,10 +24,12 @@ public class CouponService {
 
     private final CustomerService customerService;
     private final CouponRepository couponRepository;
+    private final StoreService storeService;
 
     /** 고객에게 쿠폰을 발급하고 쿠폰 ID를 돌려준다. */
     @Transactional
     public Long issue(Long storeId, Long customerId, CouponForm form) {
+        storeService.lockOpenStore(storeId); // 폐업 매장 차단 + 폐업 처리와 동시 실행 방지 (매장 → 고객 잠금 순서)
         Customer customer = customerService.findCustomer(storeId, customerId);
 
         if (form.getExpiresAt().isBefore(LocalDate.now())) {

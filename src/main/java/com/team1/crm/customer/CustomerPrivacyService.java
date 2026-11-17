@@ -1,5 +1,6 @@
 package com.team1.crm.customer;
 
+import com.team1.crm.loyalty.LoyaltyPrivacyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class CustomerPrivacyService {
     private final CustomerRepository customerRepository;
+    private final LoyaltyPrivacyService loyaltyPrivacyService;
 
     /**
      * 지정 시각에 보관 기간이 만료된 미처리 고객을 일괄 처리한다.
@@ -30,6 +32,10 @@ public class CustomerPrivacyService {
         if (processedAt == null) {
             throw new IllegalArgumentException("개인정보 제거 처리 시각이 필요합니다.");
         }
-        return customerRepository.removeExpiredPersonalData(processedAt);
+        int removed = customerRepository.removeExpiredPersonalData(processedAt);
+        // 고객 정보를 지운 직후, 같은 트랜잭션에서 방문 메모·쿠폰 제목 같은 자유 입력 글도 정리한다.
+        // 결제 금액·방문일·포인트·할인액은 유지한다. 작성자: 이재준 / 작성일: 2026-11-17
+        loyaltyPrivacyService.clearFreeTextOfAnonymizedCustomers();
+        return removed;
     }
 }

@@ -202,4 +202,26 @@ public class StoreService {
                     );
                 });
     }
+
+    /**
+     * 신규 거래(방문 등록·쿠폰 발급)를 하기 전에 매장 행을 잠그고 영업 중인지 확인한다.
+     * 폐업 처리와 같은 매장 행을 잠그므로 폐업과 신규 거래가 동시에 실행되지 않는다.
+     * 호출한 쓰기 트랜잭션에 합류하며, 잠금은 그 트랜잭션이 끝날 때 풀린다.
+     * 요청 앞부분에서 이미 읽어 둔 매장 엔티티는 낡은 값일 수 있어서, DB의 최신 폐업 여부를 한 번 더 확인한다.
+     *
+     * @throws ResponseStatusException 매장이 없으면 404, 폐업 매장이면 409
+     *
+     * 작성자: 이재준
+     * 작성일: 2026-11-17
+     * 근거: docs/architecture/10_매장_폐업_정책.md (C 담당 신규 거래는 매장 잠금과 폐업 차단 적용)
+     */
+    @Transactional
+    public void lockOpenStore(Long storeId) {
+        Store store = storeRepository.findLockedById(storeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "매장을 찾을 수 없습니다."));
+        store.requireOpen();
+        if (storeRepository.existsByIdAndClosedAtIsNotNull(storeId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "폐업 매장은 변경할 수 없습니다.");
+        }
+    }
 }

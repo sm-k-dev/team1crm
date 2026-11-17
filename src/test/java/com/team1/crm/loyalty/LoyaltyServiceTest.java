@@ -3,6 +3,7 @@ package com.team1.crm.loyalty;
 import com.team1.crm.auth.Member;
 import com.team1.crm.auth.Role;
 import com.team1.crm.auth.Store;
+import com.team1.crm.auth.StoreService;
 import com.team1.crm.customer.Customer;
 import com.team1.crm.customer.CustomerService;
 import com.team1.crm.loyalty.coupon.Coupon;
@@ -19,9 +20,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -47,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.sql.init.mode=never"
 })
 @ActiveProfiles("test")
-@Import({CustomerService.class, VisitService.class, PointService.class,
+@Import({CustomerService.class, StoreService.class, VisitService.class, PointService.class,
         CouponService.class, LoyaltyDetailService.class})
 class LoyaltyServiceTest {
 
@@ -361,6 +365,64 @@ class LoyaltyServiceTest {
         assertEquals(1L, count("Visit", customerId));
         assertEquals(1L, count("PointHistory", customerId));
         assertEquals(1L, count("Coupon", customerId));
+    }
+
+    // ───────────── 폐업 매장 ─────────────
+
+    @Test
+    @DisplayName("폐업 매장에는 방문 등록(쿠폰·포인트 포함)과 쿠폰 발급이 거부되고 과거 이력은 그대로 남는다")
+    void closedStoreRejectsNewTransactionsButKeepsHistory() {
+        Store store = createStore("closed-store", 10);
+        Customer customer = createCustomer(store, "010-1111-0030");
+        visitService.register(store.getId(), customer.getId(), visitForm(10000, null)); // 1000P
+        Long couponId = couponService.issue(store.getId(), customer.getId(), couponForm("쿠폰", 1000, LocalDate.now().plusDays(3)));
+        flushAndClear();
+
+        em.find(Store.class, store.getId()).close(LocalDateTime.now());
+        flushAndClear();
+
+        Long storeId = store.getId();
+        Long customerId = customer.getId();
+        VisitForm plain = visitForm(1000, null);
+        VisitForm withPoints = visitForm(1000, null);
+        withPoints.setUsedPoints(1);
+        VisitForm withCoupon = visitForm(1000, null);
+        withCoupon.setCouponId(couponId);
+        for (VisitForm form : new VisitForm[]{plain, withPoints, withCoupon}) {
+            var e = assertThrows(ResponseStatusException.class, () -> visitService.register(storeId, customerId, form));
+            assertEquals(HttpStatus.CONFLICT, e.getStatusCode());
+        }
+        var issue = assertThrows(ResponseStatusException.class, () -> couponService.issue(
+                storeId, customerId, couponForm("신규", 1000, LocalDate.now().plusDays(3))));
+        assertEquals(HttpStatus.CONFLICT, issue.getStatusCode());
+        flushAndClear();
+
+        // 폐업 전의 방문 1건, 적립 1건, 쿠폰 1건(미사용)은 그대로다
+        assertEquals(1L, count("Visit", customerId));
+        assertEquals(1L, count("PointHistory", customerId));
+        assertEquals(1L, count("Coupon", customerId));
+        assertEquals("사용 가능", couponService.list(storeId, customerId).get(0).getStatus());
+    }
+
+    @Test
+    @DisplayName("이미 읽어 둔 매장 정보가 낡았어도 DB의 최신 폐업 여부로 거부한다")
+    void closedStoreIsDetectedEvenWhenLoadedStoreIsStale() {
+        Store store = createStore("closed-stale", 10);
+        Customer customer = createCustomer(store, "010-1111-0031");
+        flushAndClear();
+
+        Store loaded = em.find(Store.class, store.getId()); // 영업 중으로 읽어 둔 상태(요청 앞부분에서 읽은 것과 같다)
+        assertFalse(loaded.isClosed());
+        // 다른 요청이 그 사이 폐업 처리했다고 가정 (읽어 둔 엔티티는 모르는 채로 DB만 바뀐다)
+        em.createQuery("UPDATE Store s SET s.closedAt = :at WHERE s.id = :id")
+                .setParameter("at", LocalDateTime.now()).setParameter("id", store.getId()).executeUpdate();
+
+        Long storeId = store.getId();
+        Long customerId = customer.getId();
+        assertFalse(loaded.isClosed()); // 읽어 둔 엔티티는 여전히 영업 중으로 보인다
+        var e = assertThrows(ResponseStatusException.class,
+                () -> visitService.register(storeId, customerId, visitForm(1000, null)));
+        assertEquals(HttpStatus.CONFLICT, e.getStatusCode());
     }
 
     // ───────────── 상세 화면 묶음 ─────────────

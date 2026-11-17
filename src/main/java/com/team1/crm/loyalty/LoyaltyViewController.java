@@ -77,6 +77,9 @@ public class LoyaltyViewController {
             redirectAttributes.addFlashAttribute("visitMessage", message.toString());
         } catch (IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("visitError", exception.getMessage());
+        } catch (ResponseStatusException exception) {
+            // 폐업 매장(409) 등: 오류 페이지 대신 화면 안내로 보여 준다
+            redirectAttributes.addFlashAttribute("visitError", exception.getReason());
         }
         return redirectToDetail(customerId, store.getId(), redirectAttributes);
     }
@@ -105,6 +108,8 @@ public class LoyaltyViewController {
             redirectAttributes.addFlashAttribute("couponMessage", "쿠폰이 발급되었습니다.");
         } catch (IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("couponError", exception.getMessage());
+        } catch (ResponseStatusException exception) {
+            redirectAttributes.addFlashAttribute("couponError", exception.getReason());
         }
         return redirectToDetail(customerId, store.getId(), redirectAttributes);
     }
