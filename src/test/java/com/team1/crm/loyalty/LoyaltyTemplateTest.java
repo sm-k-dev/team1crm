@@ -89,6 +89,8 @@ class LoyaltyTemplateTest {
                 () -> assertTrue(html.contains("name=\"couponId\"")),
                 () -> assertTrue(html.contains("name=\"usedPoints\"")),
                 () -> assertTrue(html.contains("name=\"menuMemo\"")),
+                () -> assertTrue(html.contains("개인정보는 적지 마세요")),          // 방문 메모 입력 안내 (B안)
+                () -> assertTrue(html.contains("이 메모도 함께 삭제됩니다")),
                 () -> assertTrue(html.contains("보유 <span>1,305</span>P")),
                 () -> assertTrue(html.contains("max=\"1305\"")),   // 보유 포인트를 넘게 입력하지 못하게 화면에서도 제한
                 () -> assertFalse(html.contains("alert alert"))     // 메시지가 없으면 알림 영역도 없다
@@ -171,7 +173,9 @@ class LoyaltyTemplateTest {
                 () -> assertTrue(html.contains("사용 가능")),
                 () -> assertTrue(html.contains("사용함")),
                 () -> assertFalse(html.contains("/redeem")),          // 쿠폰은 방문 등록에서만 사용한다
-                () -> assertTrue(html.contains("방문 등록</strong>에서 선택해 사용"))
+                () -> assertTrue(html.contains("방문 등록</strong>에서 선택해 사용")),
+                () -> assertTrue(html.contains("개인정보를 적지 마세요")),          // 쿠폰 제목 입력 안내 (B안)
+                () -> assertTrue(html.contains("삭제된 고객 쿠폰"))
         );
     }
 

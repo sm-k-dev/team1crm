@@ -26,4 +26,11 @@ public interface CouponRepository extends JpaRepository<Coupon, Long> {
                  @Param("customerId") Long customerId,
                  @Param("now") LocalDateTime now,
                  @Param("today") LocalDate today);
+
+    // 개인정보를 제거한(anonymized_at 이 있는) 고객의 쿠폰 제목을 고정 문구로 바꾼다. 이미 바뀐 행은 제외해 반복 실행해도 결과가 같다.
+    // 할인액·만료일·사용 여부는 건드리지 않는다. 바뀐 행 수를 돌려준다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Coupon c SET c.title = :title WHERE c.title <> :title " +
+           "AND c.customer.id IN (SELECT cu.id FROM Customer cu WHERE cu.anonymizedAt IS NOT NULL)")
+    int replaceTitleOfAnonymizedCustomers(@Param("title") String title);
 }

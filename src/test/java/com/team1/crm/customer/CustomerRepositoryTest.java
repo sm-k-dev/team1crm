@@ -41,7 +41,8 @@ import static org.junit.jupiter.api.Assertions.*;
         "spring.sql.init.mode=never"
 })
 @ActiveProfiles("test")
-@Import({CustomerService.class, CustomerPrivacyService.class, AnalyticsService.class})
+@Import({CustomerService.class, CustomerPrivacyService.class, AnalyticsService.class,
+        com.team1.crm.loyalty.LoyaltyPrivacyService.class})
 class CustomerRepositoryTest {
 
     @Autowired
