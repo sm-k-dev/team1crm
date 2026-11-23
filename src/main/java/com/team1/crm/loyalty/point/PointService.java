@@ -46,7 +46,7 @@ public class PointService {
     public void lockCustomer(Long customerId) {
         Customer locked = entityManager.find(Customer.class, customerId, LockModeType.PESSIMISTIC_WRITE);
         if (locked == null) {
-            throw new IllegalArgumentException("해당 매장의 고객을 찾을 수 없습니다.");
+            throw new com.team1.crm.customer.CustomerNotFoundException();
         }
     }
 

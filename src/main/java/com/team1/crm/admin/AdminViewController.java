@@ -20,7 +20,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  * 작성자: 김순민 / 작성일: 2026-11-11
  */
 @Controller
-@Profile("dev")
+@Profile({"dev", "prod"}) // 개발·운영 환경에서 업무 화면 제공 (김순민, 2026-11-23)
 @RequiredArgsConstructor
 public class AdminViewController {
     private final AdminStoreService adminStoreService;

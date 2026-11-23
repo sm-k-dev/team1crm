@@ -190,6 +190,7 @@
 <div class="card">
 <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
 <span class="fw-bold">RFM 고객 등급 (R 최근성 · F 빈도 · M 금액, 5점이 가장 좋음)</span>
+<p class="small text-muted mb-0">선택 월 말까지 방문한 현재 고객 대상 · 빈도/금액은 최근 6개월 · 60일 이상 미방문은 이탈 위험</p>
 <div class="d-flex align-items-center gap-2" th:if="${rfm != null and !rfm.rows().isEmpty()}">
 <label class="small text-nowrap" for="rfmSort">정렬</label>
 <select id="rfmSort" class="form-select form-select-sm" style="width: 11rem; max-width: 100%;" aria-controls="rfmCustomerRows">
