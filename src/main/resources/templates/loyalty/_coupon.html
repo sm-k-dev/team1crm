@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <body>
-<!-- 사용: <section th:replace="~{loyalty/_coupon :: couponPanel}"></section> -->
+<!-- 사용: <section th:replace="~{loyalty/_coupon :: couponPanel}"></section>
+     필요한 모델 값: customerId, selectedStore, coupons (선택: couponMessage, couponError) -->
 <section th:fragment="couponPanel" class="card mb-4" aria-labelledby="coupon-panel-title">
   <div class="card-header fw-bold" id="coupon-panel-title"><i class="bi bi-ticket-perforated"></i> 쿠폰</div>
   <div class="card-body">
-    <form th:action="@{/customers/{id}/coupons(id=${customerId})}" method="post" class="row g-2 mb-3">
+    <div th:if="${couponMessage != null}" class="alert alert-success py-2 small" th:text="${couponMessage}">쿠폰이 발급되었습니다.</div>
+    <div th:if="${couponError != null}" class="alert alert-danger py-2 small" th:text="${couponError}">오류 메시지</div>
+    <form th:action="@{/customers/{id}/coupons(id=${customerId},storeId=${selectedStore.id})}" method="post" class="row g-2 mb-3">
       <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
       <div class="col-12"><label class="form-label" for="couponTitle">쿠폰 이름</label><input id="couponTitle" name="title" class="form-control" maxlength="50" required /></div>
       <div class="col-6"><label class="form-label" for="couponDiscount">할인 금액(원)</label><input id="couponDiscount" name="discount" class="form-control" type="number" min="1" step="1" required /></div>
@@ -14,12 +17,12 @@
     </form>
     <ul class="list-group">
       <li th:each="coupon : ${coupons}" class="list-group-item d-flex justify-content-between align-items-center">
-        <span><strong th:text="${coupon.title}">쿠폰</strong> <small th:text="${coupon.discount}">0</small></span>
-        <span th:text="${coupon.status}">상태</span>
+        <span><strong th:text="${coupon.title}">쿠폰</strong> <small th:text="${#numbers.formatInteger(coupon.discount, 1, 'COMMA')} + '원 할인'">0</small></span>
+        <span class="badge text-bg-secondary" th:text="${coupon.status}">상태</span>
       </li>
       <li th:if="${coupons == null or #lists.isEmpty(coupons)}" class="list-group-item text-muted">쿠폰이 없습니다.</li>
     </ul>
-    <p class="small text-muted mt-2 mb-0">발급/사용/만료 상태 전이는 서버 트랜잭션에서 검증합니다. 서버 처리 구현 전까지 제출하지 마세요.</p>
+    <p class="small text-muted mt-2 mb-0">쿠폰은 <strong>방문 등록</strong>에서 선택해 사용합니다. 쿠폰 제목에는 고객 이름·전화번호 같은 개인정보를 적지 마세요. 고객 정보가 파기되면 제목은 "삭제된 고객 쿠폰"으로 바뀝니다.</p>
   </div>
 </section>
 </body>

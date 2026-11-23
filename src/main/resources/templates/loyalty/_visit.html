@@ -1,27 +1,47 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <body>
-<!-- 사용: <section th:replace="~{loyalty/_visit :: visitPanel}"></section> -->
+<!-- 사용: 고객 상세 화면에서 아래 두 조각을 함께 포함한다.
+     <section th:replace="~{loyalty/_visit :: visitPanel}"></section>
+     <section th:replace="~{loyalty/_visit :: visitHistory}"></section>
+     필요한 모델 값: customerId, selectedStore, visits (선택: visitMessage, visitError) -->
 <section th:fragment="visitPanel" class="card mb-4" aria-labelledby="visit-panel-title">
   <div class="card-header fw-bold" id="visit-panel-title"><i class="bi bi-receipt"></i> 방문 등록</div>
   <div class="card-body">
-    <!-- 상위 화면에서 customerId 및 CSRF 값을 제공하고 서버에서 매장 소유권 검증 -->
-    <form th:action="@{/customers/{id}/visits(id=${customerId})}" method="post" class="row g-2">
+    <div th:if="${visitMessage != null}" class="alert alert-success py-2 small" th:text="${visitMessage}">방문이 등록되었습니다.</div>
+    <div th:if="${visitError != null}" class="alert alert-danger py-2 small" th:text="${visitError}">오류 메시지</div>
+    <!-- 매장 소유권은 서버가 storeId로 다시 확인한다 -->
+    <form th:action="@{/customers/{id}/visits(id=${customerId},storeId=${selectedStore.id})}" method="post" class="row g-2">
       <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-      <div class="col-6"><label class="form-label" for="visitAmount">결제 금액(원)</label><input id="visitAmount" name="amount" class="form-control" type="number" min="0" step="1" required /></div>
-      <div class="col-6"><label class="form-label" for="visitUsedPoints">사용 포인트</label><input id="visitUsedPoints" name="usedPoints" class="form-control" type="number" min="0" step="1" value="0" /></div>
-      <div class="col-12"><label class="form-label" for="visitMemo">방문 메모</label><input id="visitMemo" name="memo" class="form-control" maxlength="200" /></div>
+      <div class="col-6"><label class="form-label" for="visitAmount">결제 금액(원, 할인 전)</label><input id="visitAmount" name="amount" class="form-control" type="number" min="0" step="1" required /></div>
+      <div class="col-6"><label class="form-label" for="visitedAt">방문 일시</label><input id="visitedAt" name="visitedAt" class="form-control" type="datetime-local" /></div>
+      <div class="col-6">
+        <label class="form-label" for="visitCoupon">사용할 쿠폰</label>
+        <select id="visitCoupon" name="couponId" class="form-select">
+          <option value="">사용 안 함</option>
+          <!-- 사용 가능한 쿠폰만 보여 준다. 사용 여부·기한·소유는 서버가 다시 확인한다 -->
+          <option th:each="coupon : ${coupons}" th:if="${coupon.status == '사용 가능'}"
+                  th:value="${coupon.id}"
+                  th:text="${coupon.title + ' (' + #numbers.formatInteger(coupon.discount, 1, 'COMMA') + '원 할인)'}">쿠폰</option>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label" for="visitUsedPoints">사용 포인트 <small class="text-muted">(보유 <span th:text="${#numbers.formatInteger(pointBalance != null ? pointBalance : 0, 1, 'COMMA')}">0</span>P)</small></label>
+        <input id="visitUsedPoints" name="usedPoints" class="form-control" type="number" min="0" step="1" th:max="${pointBalance}" placeholder="0" />
+      </div>
+      <div class="col-12"><label class="form-label" for="visitMemo">방문 메모</label><input id="visitMemo" name="menuMemo" class="form-control" maxlength="200" />
+        <div class="form-text">고객 이름·전화번호 같은 개인정보는 적지 마세요. 고객 정보가 파기되면 이 메모도 함께 삭제됩니다.</div></div>
       <div class="col-12"><button class="btn btn-primary btn-sm" type="submit">방문 등록</button></div>
     </form>
-    <p class="small text-muted mt-2 mb-0">적립률·사용 가능 포인트는 서버에서 검증합니다. 서버 POST 처리 구현 전까지 제출하지 마세요.</p>
+    <p class="small text-muted mt-2 mb-0">결제 금액에서 <strong>쿠폰 할인</strong>과 <strong>사용 포인트(1P = 1원)</strong>를 뺀 금액이 실제 결제 금액이 되고, 이 금액 × 매장 적립률(소수점 첫째 자리 반올림)로 적립합니다. 방문 일시를 비우면 현재 시각으로 등록됩니다.</p>
   </div>
 </section>
 <section th:fragment="visitHistory" class="card mb-4" aria-labelledby="visit-history-title">
   <div class="card-header fw-bold" id="visit-history-title">최근 방문</div>
   <ul class="list-group list-group-flush">
     <li th:each="visit : ${visits}" class="list-group-item d-flex justify-content-between">
-      <span><span th:text="${visit.visitedAt}">방문 일시</span> <small class="text-muted" th:text="${visit.memo}">메모</small></span>
-      <span th:text="${visit.amount}">0</span>
+      <span><span th:text="${#temporals.format(visit.visitedAt, 'yyyy-MM-dd HH:mm')}">방문 일시</span> <small class="text-muted" th:text="${visit.menuMemo}">메모</small></span>
+      <span th:text="${#numbers.formatInteger(visit.amount, 1, 'COMMA')} + '원'">0원</span>
     </li>
     <li th:if="${visits == null or #lists.isEmpty(visits)}" class="list-group-item text-muted">방문 기록이 없습니다.</li>
   </ul>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chrome Network에서 Google 로그인 요청 확인하기</title>
+<style>
+:root{color-scheme:light;--ink:#172c29;--muted:#465c58;--accent:#0a5948;--line:#cfdbd6;--paper:#fff;--wash:#f2f6f4}
+*{box-sizing:border-box}body{margin:0;background:var(--wash);color:var(--ink);font:16px/1.7 "Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+main{width:min(100% - 36px,850px);margin:44px auto 64px}header{border-top:5px solid var(--accent);padding:25px 0 24px}h1,h2,p{margin:0}h1{font-size:clamp(1.8rem,5vw,2.75rem);line-height:1.24;letter-spacing:-.045em;max-width:21ch}header p{margin-top:12px;color:var(--muted)}h2{font-size:1.24rem;letter-spacing:-.025em;margin-bottom:7px}
+.steps{list-style:none;counter-reset:steps;margin:0;padding:0;display:grid;gap:12px}.step{counter-increment:steps;position:relative;padding:20px 22px 21px 66px;background:var(--paper);border:1px solid var(--line);border-radius:12px}.step::before{content:counter(steps);position:absolute;left:19px;top:19px;width:30px;height:30px;text-align:center;line-height:30px;background:#dcefe7;color:var(--accent);font-weight:800;border-radius:8px}.step p+p{margin-top:8px}
+code,kbd{font-family:Consolas,"Courier New",monospace;font-size:.92em;overflow-wrap:anywhere}kbd{padding:2px 5px;border:1px solid var(--line);border-radius:4px;background:#f6f8f7}
+figure{margin:15px 0 0}figcaption{color:var(--muted);font-size:.86rem;margin-bottom:5px}.panel{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fafcfb}.panel p{padding:8px 12px;margin:0!important;border-bottom:1px solid var(--line);font-size:.92rem}.panel .tab{color:var(--accent);font-weight:bold}.panel .field{display:flex;flex-wrap:wrap;gap:5px 15px;padding:11px 12px}.panel mark{background:#d9f1e5;color:#134438;padding:0 4px;border-radius:3px;overflow-wrap:anywhere}
+details{margin-top:18px;padding:13px 17px;border:1px solid var(--line);border-radius:10px}summary{cursor:pointer;font-weight:700}details ul{margin:7px 0 0;padding-left:22px}footer{margin-top:18px;font-size:.89rem}a{color:var(--accent);text-underline-offset:3px}
+.download{display:inline-block;padding:7px 13px;border-radius:6px;background:var(--accent);color:#fff;font-weight:700;text-decoration:none}.download:hover,.download:focus-visible{text-decoration:underline}@media(max-width:480px){main{margin-top:22px}.step{padding:16px 13px 17px 48px}.step::before{left:11px;top:17px;width:26px;height:26px;line-height:26px}}@media print{body{background:white}main{margin:0;width:100%}.step,figure{break-inside:avoid}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Chrome Network에서 Google 로그인 요청 확인하기</h1>
+<p>Spring Boot CRM의 Google 로그인에서 <code>401 invalid_client</code>가 뜰 때, 브라우저가 Google에 전달한 <code>client_id</code>를 확인하는 방법입니다.</p>
+<p><a class="download" href="./google-oauth-network-guide.html" download="google-oauth-network-guide.html">HTML 파일 다운로드</a></p>
+</header>
+<ol class="steps">
+<li class="step">
+<h2>로그인 전에 Network 탭 열기</h2>
+<p>Chrome에서 CRM 로그인 화면을 열고 <kbd>F12</kbd> 또는 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>I</kbd>를 누릅니다. <strong>Network</strong>(네트워크) 탭에서 기록이 켜져 있는지 확인하고 <strong>Preserve log</strong>를 체크합니다. Google로 이동해도 요청 목록이 유지됩니다.</p>
+<p><strong>Clear</strong> 버튼으로 이전 요청 목록을 비운 뒤 CRM의 <strong>Google 로그인</strong> 버튼을 누릅니다.</p>
+</li>
+<li class="step">
+<h2>Google로 이동한 요청 선택하기</h2>
+<p>Network 상단에서 <strong>All</strong>을 선택하고 <strong>Filter</strong> 칸에 <code>domain:accounts.google.com</code>을 입력합니다. <strong>Name</strong> 목록에서 <code>auth</code>처럼 보이는 Google 인증 요청을 클릭합니다. <strong>Headers → General → Request URL</strong>에서 <code>accounts.google.com</code>으로 향하며 URL에 <code>client_id=</code>가 들어 있는 요청을 찾습니다.</p>
+<p>이미 오류 화면이라면 <code>signin/oauth/error</code> 요청에서도 <code>client_id</code>를 확인할 수 있습니다. 처음 Google로 보낸 값을 추적하려면 그보다 앞선 인증 요청을 선택하세요.</p>
+</li>
+<li class="step">
+<h2>Payload에서 client_id 읽기</h2>
+<p><strong>Payload → Query String Parameters</strong>를 열고 <code>client_id</code> 행을 찾습니다. 같은 위치에서 <code>redirect_uri</code>도 확인할 수 있습니다.</p>
+<figure>
+<figcaption>오류가 났을 때 보이는 값 예시</figcaption>
+<div class="panel">
+<p><span class="tab">Payload</span> <span aria-hidden="true">→</span> Query String Parameters</p>
+<div class="field"><code>client_id</code> <code><mark>${GOOGLE_CLIENT_ID}</mark></code></div>
+</div>
+</figure>
+<p><strong>Headers</strong>의 요청 URL에서는 같은 값이 <code>client_id=%24%7BGOOGLE_CLIENT_ID%7D</code>로 표시될 수 있습니다. URL을 디코딩하면 위 예시와 같습니다.</p>
+</li>
+<li class="step">
+<h2>수정 후 새 요청으로 비교하기</h2>
+<p><code>${GOOGLE_CLIENT_ID}</code>가 보이면 Spring이 환경변수 참조 문자열을 그대로 보낸 것입니다. IntelliJ의 <strong>Run → Edit Configurations → CrmApplication → Environment variables</strong>에서 <code>GOOGLE_CLIENT_ID</code>와 <code>GOOGLE_CLIENT_SECRET</code>의 이름 끝에 공백이 없는지 확인합니다.</p>
+<p>서버를 재시작한 뒤 다시 로그인 버튼을 누릅니다. 새 요청의 <code>client_id</code>가 등록된 Google OAuth 클라이언트 ID와 일치하고, 이 CRM의 <code>redirect_uri</code>가 <code>http://localhost:8082/login/oauth2/code/google</code>인지 비교합니다. 로그인 성공 여부는 계정 선택 후 CRM으로 돌아와 로그인 상태가 되는지까지 확인합니다.</p>
+</li>
+</ol>
+<details open>
+<summary>목록에 요청이 없거나 화면을 공유할 때</summary>
+<ul>
+<li>요청이 안 보이면 필터를 지우고 <strong>All</strong>과 기록 상태를 확인한 뒤 CRM에서 다시 로그인 버튼을 누르세요. 로컬 요청 <code>/oauth2/authorization/google</code>의 <strong>Headers → Response Headers → Location</strong>에서도 Google로 보낸 URL을 확인할 수 있습니다.</li>
+<li>캡처를 공유할 때는 <code>client_id</code> 행만 남기고 이메일 주소, 쿠키, <code>state</code>, 인증 코드, 비밀값은 가리세요.</li>
+</ul>
+</details>
+<footer><a href="https://developer.chrome.com/docs/devtools/network/reference">Chrome DevTools Network 공식 문서</a></footer>
+</main>
+</body>
+</html>

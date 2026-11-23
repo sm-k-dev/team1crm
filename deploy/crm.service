@@ -8,7 +8,7 @@ After=network.target
 User=ubuntu
 WorkingDirectory=/home/ubuntu/crm
 EnvironmentFile=/home/ubuntu/crm/crm.env
-Environment=SPRING_PROFILES_ACTIVE=prod
+# Profile, port and DB credentials are managed only in crm.env.
 ExecStart=/usr/bin/java -Xmx512m -jar /home/ubuntu/crm/crm.jar
 SuccessExitStatus=143
 Restart=always

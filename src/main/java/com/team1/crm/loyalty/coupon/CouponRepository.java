@@ -1,10 +1,36 @@
 package com.team1.crm.loyalty.coupon;
 
-/**
- * Team implementation placeholder.
- * Original implementation is preserved in the separate Reference Bundle.
- * Define responsibilities and contracts with your team before coding.
- */
-public interface CouponRepository {
-    // TODO: implement as assigned by team.
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+// Coupon 은 같은 패키지라 import 불필요
+public interface CouponRepository extends JpaRepository<Coupon, Long> {
+
+    // 고객의 쿠폰 목록 (최근 발급 순)
+    List<Coupon> findByCustomerIdOrderByIdDesc(Long customerId);
+
+    // 쿠폰 사용 처리를 조건부 UPDATE 한 번으로 끝낸다 (중복 사용 방지).
+    // 미사용 + 기한 내 + 같은 고객인 경우에만 usedAt 을 채우고, 바뀐 행 수(0 또는 1)를 돌려준다.
+    // 반환값이 0 이면 서비스에서 "이미 사용했거나 기한이 지났거나 대상이 없음"으로 처리한다.
+    @Modifying
+    @Query("UPDATE Coupon c SET c.usedAt = :now " +
+           "WHERE c.id = :couponId AND c.customer.id = :customerId " +
+           "AND c.usedAt IS NULL AND c.expiresAt >= :today")
+    int markUsed(@Param("couponId") Long couponId,
+                 @Param("customerId") Long customerId,
+                 @Param("now") LocalDateTime now,
+                 @Param("today") LocalDate today);
+
+    // 개인정보를 제거한(anonymized_at 이 있는) 고객의 쿠폰 제목을 고정 문구로 바꾼다. 이미 바뀐 행은 제외해 반복 실행해도 결과가 같다.
+    // 할인액·만료일·사용 여부는 건드리지 않는다. 바뀐 행 수를 돌려준다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Coupon c SET c.title = :title WHERE c.title <> :title " +
+           "AND c.customer.id IN (SELECT cu.id FROM Customer cu WHERE cu.anonymizedAt IS NOT NULL)")
+    int replaceTitleOfAnonymizedCustomers(@Param("title") String title);
 }

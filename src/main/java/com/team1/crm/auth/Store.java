@@ -23,7 +23,7 @@ public class Store {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // @OneToOne: 회원 1명 ↔ 매장 여러 개. store 테이블에 member_id 외래키가 생기고 UNIQUE 제약은 두지 않는다.
+    // 회원 1명은 여러 매장을 소유하며 member_id에 UNIQUE 제약은 두지 않는다.
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.CASCADE)
     @JoinColumn(name = "member_id", nullable = false)
@@ -45,6 +45,24 @@ public class Store {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // 이름과 거래 관계는 유지하며 폐업 시각으로 상태를 구분한다.
+    private LocalDateTime closedAt;
+
+    /** 폐업 여부를 반환한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    public boolean isClosed() { return closedAt != null; }
+
+    /** 이름과 별개인 이용 상태를 반환한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    public StoreStatus getStatus() { return isClosed() ? StoreStatus.CLOSED : StoreStatus.OPEN; }
+
+    /** 폐업 후 업무 변경을 서버에서도 거절한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    public void requireOpen() {
+        if (isClosed()) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "폐업 매장은 과거 통계만 조회할 수 있습니다.");
+    }
+
+    /** 최초 폐업 시각을 보존한다. 작성자: 김순민 / 작성일: 2026-11-11 */
+    public void close(LocalDateTime at) { if (closedAt == null) closedAt = java.util.Objects.requireNonNull(at); }
+
     public Store(Member owner, String name, String category, String address, int pointRate) {
         this.owner = owner;
         this.name = name;
@@ -55,10 +73,11 @@ public class Store {
     }
 
     // ADMIN-only reassignment; DB FK ensures owner exists.
-    public void changeOwner(Member owner) { this.owner = owner; }
+    public void changeOwner(Member owner) { requireOpen(); this.owner = owner; }
 
     // 호출: StoreService.update(). 값만 바꾸면 트랜잭션 종료 시 Hibernate 변경 감지로 UPDATE 실행
     public void update(String name, String category, String address, int pointRate) {
+        requireOpen();
         this.name = name;
         this.category = category;
         this.address = address;

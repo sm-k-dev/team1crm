@@ -73,17 +73,51 @@
 </form>
 <div class="table-responsive"><table class="table table-hover align-middle bg-white">
 <thead class="table-light"><tr><th>이름</th><th>전화번호</th><th>생일</th><th>수신 동의</th><th>등록일</th></tr></thead>
-<tbody>
-<!--/* c.maskedPhone : Customer.getMaskedPhone() → 가운데 4자리를 **** 로 가린 번호 */-->
-<tr>
-<td><a href="/index.html">이름</a></td>
-<td>010-****-0000</td>
-<td>-</td>
-<td><span class="badge">동의</span></td>
-<td>날짜</td>
-</tr>
-<tr><td class="text-center text-muted" colspan="5">고객이 없습니다.</td></tr>
-</tbody>
+    <tbody>
+        <!--
+            지정한 매장의 고객 목록을 출력한다.
+            전화번호는 Customer.getMaskedPhone()으로 마스킹하여 표시한다.
+
+            작성자: 김순민
+            작성일: 2026-11-06
+        -->
+        <tr th:each="customer : ${customers}">
+            <td th:text="${customer.name}">고객 이름</td>
+
+            <td th:text="${customer.maskedPhone}">
+                010-****-0000
+            </td>
+
+            <td th:text="${customer.birthMonth != null
+                ? customer.birthMonth + '월'
+                : '-'}">
+                -
+            </td>
+
+            <td>
+            <span class="badge"
+                  th:classappend="${customer.agreeMarketing
+                      ? 'bg-success'
+                      : 'bg-secondary'}"
+                  th:text="${customer.agreeMarketing
+                      ? '동의'
+                      : '미동의'}">
+                수신 동의 여부
+            </span>
+            </td>
+
+            <td th:text="${#temporals.format(
+                customer.createdAt, 'yyyy-MM-dd')}">
+                등록일
+            </td>
+        </tr>
+
+        <tr th:if="${#lists.isEmpty(customers)}">
+            <td class="text-center text-muted" colspan="5">
+                고객이 없습니다.
+            </td>
+        </tr>
+    </tbody>
 </table></div>
 </main>
 <footer class="saas-footer">
