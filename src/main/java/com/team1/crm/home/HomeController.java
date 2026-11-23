@@ -26,7 +26,7 @@ import java.util.List;
  */
 
 @Controller // HTML 화면을 반환하는 Spring MVC 컨트롤러
-@Profile("dev") // dev 프로필이 활성화된 환경에서만 Bean 등록
+@Profile({"dev", "prod"}) // 개발·운영 환경에서 업무 화면 제공 (김순민, 2026-11-23)
 @RequiredArgsConstructor // final 필드를 이용한 생성자 자동 생성
 public class HomeController {
 

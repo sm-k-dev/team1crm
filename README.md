@@ -109,7 +109,7 @@ macOS / Linux:
 
 또는 IDE에서 `com.team1.crm.CrmApplication`을 실행합니다.
 `SERVER_PORT=8082` 기준 접속 주소는 `http://localhost:8082/`, 로그인 화면은 `/login`입니다.
-SQL 초기화는 자동 실행하지 않습니다. 더미 데이터가 필요하면 [시드 SQL](docs/sql/seed_dummy.sql)을 검토한 뒤 개발 DB에 적용합니다.
+SQL 초기화는 자동 실행하지 않습니다. 시연 데이터는 dev에서 `CRM_DEMO_ENABLED=true`와 공통 비밀번호 정책을 만족하는 `CRM_DEMO_PASSWORD`를 설정한 뒤 한 번 실행해 생성합니다. 관리자 `admin.demo@crm.local`, 사장님 `owner.demo@crm.local`, 가상 고객 50명과 현재 월 포함 6개월 방문·적립 내역을 생성합니다. 생성 후 플래그는 끄세요. 기존 전용 사장님 계정이 있으면 건너뜁니다. [현재 요구사항·시연 데이터·RFM 기준](docs/architecture/14_요구사항_통합_수정_20261123.md)을 참고하세요.
 
 ## DB 변경·운영 설정
 

@@ -71,6 +71,11 @@ public class StoreService {
         String trimmedName = name.trim();
         String trimmedAddress =
                 address == null ? null : address.trim();
+        // API 외 호출에서도 DB 컬럼 길이를 초과하지 않도록 검사한다. 김순민, 2026-11-23
+        if (trimmedName.length() > 50 || (category != null && category.length() > 30)
+                || (trimmedAddress != null && trimmedAddress.length() > 200)) {
+            throw new IllegalArgumentException("매장 이름은 50자, 업종은 30자, 주소는 200자 이하여야 합니다.");
+        }
 
         // 5. 동일 소유자의 매장 중복 등록 검사
         if (storeRepository.existsByOwner_IdAndNameAndAddress(
@@ -90,7 +95,7 @@ public class StoreService {
                 member, // 매장 소유 회원
                 name.trim(), // 매장 이름의 앞뒤 공백 제거
                 category, // 매장 업종
-                address, // 매장 주소
+                trimmedAddress, // 중복 검사와 동일한 주소를 저장
                 pointRate // 포인트 적립률
         );
 

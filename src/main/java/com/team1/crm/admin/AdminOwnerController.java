@@ -17,7 +17,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 /** 관리자 사장님 계정 등록 요청을 처리한다. 작성자: 김순민 / 작성일: 2026-11-11 */
 @Controller
-@Profile("dev")
+@Profile({"dev", "prod"}) // 개발·운영 환경에서 업무 화면 제공 (김순민, 2026-11-23)
 @RequiredArgsConstructor
 public class AdminOwnerController {
     private final AdminOwnerService service;

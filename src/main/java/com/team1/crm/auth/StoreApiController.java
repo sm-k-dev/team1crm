@@ -2,6 +2,7 @@
 package com.team1.crm.auth;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -35,7 +36,7 @@ public class StoreApiController {
      */
     @PostMapping // POST /api/stores
     public ResponseEntity<?> registerStore(
-            @RequestBody StoreForm form, // JSON으로 전달된 매장 등록 정보
+            @Valid @RequestBody StoreForm form, // DB 길이·적립률 제한을 요청 단계에서 검증
             Authentication authentication  // 현재 로그인한 회원의 인증 정보
     ) {
 

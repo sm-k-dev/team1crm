@@ -81,7 +81,8 @@ public class AnalyticsService {
     }
 
     /**
-     * 선택 월에 방문한 현재 고객의 RFM 등급과 등급별 인원수를 계산한다.
+     * 선택 월 말까지 방문 이력이 있는 현재 고객의 RFM 등급과 등급별 인원수를 계산한다.
+     * 빈도·금액은 최근 6개월, 최근 방문일은 전체 이력 기준이며 60일 이상 미방문은 이탈 위험이다.
      * 소프트 삭제된 고객은 고객 목록, 점수 산정, 등급별 인원에서 제외한다.
      * 호출부에서 매장 소유권을 확인한 뒤 호출한다.
      *
@@ -94,7 +95,8 @@ public class AnalyticsService {
      */
     @Transactional(readOnly = true)
     public RfmReport summarizeRfm(long storeId, YearMonth month) {
-        var totals = repository.summarizeRfm(storeId, month.atDay(1).atStartOfDay(),
+        // 선택 월 말 기준: 최근 방문은 전체 이력, 빈도·금액은 최근 6개월. 김순민, 2026-11-23
+        var totals = repository.summarizeRfm(storeId, month.minusMonths(5).atDay(1).atStartOfDay(),
                 month.plusMonths(1).atDay(1).atStartOfDay());
         var rows = new ArrayList<RfmRow>(totals.size());
         var counts = new EnumMap<Grade, Integer>(Grade.class);
@@ -102,7 +104,9 @@ public class AnalyticsService {
             int r = total.getRecencyScore();
             int f = total.getFrequencyScore();
             int m = total.getMonetaryScore();
-            Grade grade = gradeFor(r, f, m);
+            boolean inactive = java.time.LocalDate.parse(total.getLastVisitDate())
+                    .isBefore(month.atEndOfMonth().minusDays(59));
+            Grade grade = inactive ? Grade.AT_RISK : gradeFor(r, f, m);
             rows.add(new RfmRow(total.getCustomerName(), total.getLastVisitDate(),
                     total.getVisitCount(), total.getTotalAmount(), r, f, m, grade.label));
             counts.merge(grade, 1, Integer::sum);
