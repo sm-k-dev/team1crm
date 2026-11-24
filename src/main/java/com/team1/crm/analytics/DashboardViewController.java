@@ -26,7 +26,7 @@ import java.util.Comparator;
  * 변경노트 2026-11-10 한상희: 고객별 RFM 표시 전에 로그인 회원의 매장 소유권 확인.
  */
 @Controller
-@Profile("dev")
+@Profile({"dev", "prod"}) // 개발·운영 환경에서 업무 화면 제공 (김순민, 2026-11-23)
 public class DashboardViewController {
     private final AnalyticsService analyticsService;
     private final StoreService storeService;

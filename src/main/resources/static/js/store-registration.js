@@ -5,6 +5,11 @@
      * 역할: 매장 등록 폼의 입력값을 검사하고
      *       Fetch API를 통해 서버에 매장 등록 요청을 전송합니다.
      *       서버 응답에 따라 성공 또는 오류 메시지를 표시합니다.
+     *
+     * ++ 수정일 : 2026-11-20
+     *    작성자 : 황현우
+     *    수정내용 : 매장 등록 성공 후 fetch()로 최신 HTML을 받아 현재 화면의 storeList만 갱신합니다.
+     *
      */
     document.addEventListener("DOMContentLoaded", function () {
 
@@ -73,7 +78,7 @@
                 }
 
                 // 매장 등록 API 호출
-                // 입력한 매장 정보를 JSON으로 변환하여 POST 요청
+                // 입력한 매장 정보를 JSON으로 변환하여 POST 요청 POST /api/stores
                 const response = await fetch("/api/stores", {
                     method: "POST",
                     headers: headers,
@@ -122,8 +127,36 @@
                 // 입력 폼 초기화
                 storeForm.reset();
 
-                // 내 매장 정보 페이지로 이동
-                window.location.href = "/store-settings";
+
+                // 2026-11-20 / 황현우
+                // 매장 등록 성공 후 최신 HTML을 fetch()로 받아 현재 화면의 storeList만 교체합니다. GET /store-settings
+                try {
+                    const listResponse = await fetch("/store-settings", {
+                        credentials: "same-origin",
+                        cache: "no-store"
+                    });
+
+                    if (!listResponse.ok || listResponse.redirected) {
+                        throw new Error("매장 목록 조회 실패");
+                    }
+
+                    const page = new DOMParser().parseFromString(
+                        await listResponse.text(), "text/html"
+                    );
+                    const updatedList = page.getElementById("storeList");
+
+                    if (!updatedList) {
+                        throw new Error("매장 목록 응답 누락");
+                    }
+
+                    document.getElementById("storeList").replaceWith(updatedList);
+                } catch (error) {
+                    console.error("매장 목록 갱신 오류:", error);
+                    showMessage(
+                        "매장은 등록되었습니다. 최신 목록을 보려면 페이지를 새로고침해 주세요.",
+                        "warning"
+                    );
+                }
 
             } catch (error) {
 

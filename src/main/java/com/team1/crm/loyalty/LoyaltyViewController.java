@@ -34,7 +34,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
  * 작성자: 이재준
  */
 @Controller
-@Profile("dev") // 고객 화면(CustomerViewController)과 같은 조건에서만 켠다
+@Profile({"dev", "prod"}) // 개발·운영 환경에서 업무 화면 제공 (김순민, 2026-11-23)
 @RequiredArgsConstructor
 public class LoyaltyViewController {
 

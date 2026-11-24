@@ -3,6 +3,7 @@ package com.team1.crm.auth;
 
 import lombok.Getter;
 import lombok.Setter;
+import jakarta.validation.constraints.*;
 
 /**
  * + 매장 등록 요청 데이터 DTO
@@ -17,14 +18,19 @@ import lombok.Setter;
 public class StoreForm {
 
     // 매장 이름
+    @NotBlank(message = "매장 이름을 입력해 주세요.")
+    @Size(max = 50, message = "매장 이름은 50자 이하여야 합니다.")
     private String name;
 
     // 업종 (카페, 음식점 등)
+    @Size(max = 30, message = "업종은 30자 이하여야 합니다.")
     private String category;
 
     // 매장 주소
+    @Size(max = 200, message = "주소는 200자 이하여야 합니다.")
     private String address;
 
     // 포인트 적립률 (기본 5%)
+    @Min(0) @Max(20)
     private int pointRate = 5;
 }

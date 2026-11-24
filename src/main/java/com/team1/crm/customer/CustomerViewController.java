@@ -29,7 +29,7 @@ import java.util.List;
  * 변경노트 2026-11-10 김순민: 고정 매장 조회를 로그인 회원의 소유 매장 조회로 변경
  */
 @Controller
-@Profile("dev")
+@Profile({"dev", "prod"}) // 개발·운영 환경에서 업무 화면 제공 (김순민, 2026-11-23)
 @RequiredArgsConstructor
 public class CustomerViewController {
 

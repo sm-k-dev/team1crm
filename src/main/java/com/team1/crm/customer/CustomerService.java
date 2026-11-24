@@ -150,7 +150,8 @@ public class CustomerService {
      * @param storeId 접근 권한을 확인한 매장의 ID
      * @param customerId 조회할 고객의 ID
      * @return 해당 매장에 속한 고객
-     * @throws IllegalArgumentException ID가 잘못되었거나 해당 매장의 고객이 아닌 경우
+     * @throws IllegalArgumentException ID가 잘못된 경우
+     * @throws CustomerNotFoundException 해당 매장의 활성 고객을 찾지 못한 경우 (HTTP 404)
      *
      * 작성자: 김순민
      * 작성일: 2026-11-10
@@ -166,9 +167,7 @@ public class CustomerService {
 
         return customerRepository.findByIdAndStore_Id(customerId, storeId)
                 .orElseThrow(
-                        () -> new IllegalArgumentException(
-                                "해당 매장의 고객을 찾을 수 없습니다."
-                        )
+                        CustomerNotFoundException::new
                 );
     }
 

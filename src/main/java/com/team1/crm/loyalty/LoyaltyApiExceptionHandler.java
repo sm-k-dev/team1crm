@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.Map;
 
 /**
- * 방문·포인트·쿠폰 API의 업무 규칙 위반을 400 응답으로 바꾼다.
+ * 방문·포인트·쿠폰 API의 업무 규칙 위반은 400, 없는/타 매장 고객은 404로 응답한다.
  * 서비스가 던지는 IllegalArgumentException(잔액 부족, 이미 사용한 쿠폰, 매장 소유 아님 등)이
  * 처리되지 않으면 500으로 보이므로, 메시지를 담아 400으로 내려 준다.
  *
@@ -18,6 +18,12 @@ import java.util.Map;
  */
 @RestControllerAdvice(basePackages = "com.team1.crm.loyalty")
 public class LoyaltyApiExceptionHandler {
+
+    @ExceptionHandler(com.team1.crm.customer.CustomerNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleCustomerNotFound(
+            com.team1.crm.customer.CustomerNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", e.getMessage()));
+    }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException e) {

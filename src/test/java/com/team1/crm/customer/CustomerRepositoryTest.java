@@ -45,6 +45,34 @@ import static org.junit.jupiter.api.Assertions.*;
         com.team1.crm.loyalty.LoyaltyPrivacyService.class})
 class CustomerRepositoryTest {
 
+    @Test
+    void rfmTreatsExactlySixtyDaysWithoutVisitAsInactive() {
+        Store store = createStore("rfm-boundary");
+        Customer sixty = createCustomer(store, "60일미방문", "010-4444-5678");
+        Customer fiftyNine = createCustomer(store, "59일미방문", "010-5555-5678");
+        entityManager.persist(new Visit(sixty, LocalDateTime.of(2026, 10, 1, 10, 0), 10000, 0, null));
+        entityManager.persist(new Visit(fiftyNine, LocalDateTime.of(2026, 10, 2, 10, 0), 10000, 0, null));
+        entityManager.flush();
+        var rows = analyticsService.summarizeRfm(store.getId(), YearMonth.of(2026, 11)).rows();
+        assertEquals("이탈 위험", rows.stream().filter(r -> r.customerName().equals("60일미방문")).findFirst().orElseThrow().grade());
+        assertNotEquals("이탈 위험", rows.stream().filter(r -> r.customerName().equals("59일미방문")).findFirst().orElseThrow().grade());
+    }
+
+    @Test
+    void rfmIncludesInactiveCustomersAndExcludesFutureVisits() {
+        Store store = createStore("rfm-inactive");
+        Customer inactive = createCustomer(store, "장기미방문", "010-3333-5678");
+        entityManager.persist(new Visit(inactive, LocalDateTime.of(2026, 3, 1, 10, 0), 10000, 0, null));
+        entityManager.persist(new Visit(inactive, LocalDateTime.of(2026, 12, 1, 10, 0), 90000, 0, null));
+        entityManager.flush();
+        var rows = analyticsService.summarizeRfm(store.getId(), YearMonth.of(2026, 11)).rows();
+        assertEquals(1, rows.size());
+        assertEquals("2026-03-01", rows.getFirst().lastVisitDate());
+        assertEquals(0, rows.getFirst().visits());
+        assertEquals(0, rows.getFirst().totalAmount());
+        assertEquals("이탈 위험", rows.getFirst().grade());
+    }
+
     @Autowired
     private CustomerPrivacyService customerPrivacyService;
 

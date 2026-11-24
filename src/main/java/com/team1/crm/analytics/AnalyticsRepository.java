@@ -129,17 +129,17 @@ public interface AnalyticsRepository extends Repository<Visit, Long> {
      * @param storeId 호출부에서 소유권을 검증한 매장 ID
      * @param start 포함하는 시작 시각
      * @param end 제외하는 종료 시각
-     * @return 선택 기간에 방문한 고객별 집계와 점수
+     * @return 종료 시각 이전 방문 고객별 집계와 점수. 빈도·금액만 시작 시각으로 제한한다.
      */
     @Query(value = """
             with customer_visits as (
                 select c.id as customerId, c.name as customerName, max(v.visited_at) as lastVisit,
-                       count(*) as visitCount, sum(v.amount) as totalAmount
+                       sum(case when v.visited_at >= :start then 1 else 0 end) as visitCount,
+                       sum(case when v.visited_at >= :start then v.amount else 0 end) as totalAmount
                 from visit v
                 join customer c on c.id = v.customer_id
                 where c.store_id = :storeId
                   and c.deleted_at is null
-                  and v.visited_at >= :start
                   and v.visited_at < :end
                 group by c.id, c.name
             )
