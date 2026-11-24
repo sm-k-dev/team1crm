@@ -49,10 +49,11 @@
 | `auth/StoreApiController.java` | TODO, API 미구현 |
 | `customer/CustomerApiController.java` | TODO, API 미구현 |
 | `analytics/ai/AiApiController.java` | TODO, API 미구현 |
-| `infrastructure/storage/FileApiController.java` | TODO, API 미구현 |
 | `auth/StoreSettingsViewController.java` | TODO, 화면 미연결 |
 
 ## 상태 해석과 주의사항
+
+2026-11-24: 사용하지 않는 `infrastructure/storage`의 Image·ImageRepository·FileService·FileApiController는 제거했습니다. 기존 DB의 `image` 테이블 정리는 `docs/sql/remove_unused_image.sql`을 따릅니다.
 
 1. **연결됨**은 `@GetMapping`과 `return`으로 Thymeleaf 템플릿을 찾을 수 있도록 코드가 작성됐다는 뜻입니다. 로그인, DB 조회, CRUD, 권한 검증이 구현됐다는 뜻은 아닙니다.
 2. **미연결** 화면은 템플릿/정적 HTML 파일이 있어도 대응하는 MVC GET 매핑이 확인되지 않았다는 뜻입니다. 실제 로직이 필요한 상세/설정 화면은 임의로 연결하지 않았습니다.

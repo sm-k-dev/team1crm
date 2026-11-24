@@ -120,6 +120,7 @@ SQL 초기화는 자동 실행하지 않습니다. 시연 데이터는 dev에서
 | [고객 개인정보 처리](docs/sql/customer_privacy_migration.sql) | `deleted_at`, `anonymized_at`, `phone` NULL 허용 |
 | [다중 매장 소유](docs/sql/store_multi_owner_migration.sql) | `store.member_id` 단일 UNIQUE 제거, 일반 인덱스·외래키 유지 |
 | [매장 폐업](docs/sql/store_closure_migration.sql) | `store.closed_at` |
+| [미사용 이미지 테이블 정리](docs/sql/remove_unused_image.sql) | 이미지 엔티티 제거 후, 선택 DB·행 수·외래키·트리거를 검사해 빈 테이블만 삭제 |
 
 비밀번호 재설정에는 `password_reset_tokens` 테이블도 필요합니다. 개발의 `update`와 운영의 사전 스키마 적용을 구분하고,
 토큰 해시·회원 외래키·생성/만료/사용 시각을 현재 엔티티와 대조합니다.

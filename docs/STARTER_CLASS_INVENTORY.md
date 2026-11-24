@@ -2,6 +2,8 @@
 
 기존 패키지/클래스 이름을 유지한 파일 목록입니다. 기능 구현은 포함하지 않습니다.
 
+2026-11-24: CRM에서 사용하지 않는 이미지 업로드 엔티티와 빈 storage 클래스 4개는 제거했습니다.
+
 - `CrmApplication.java`
 - `admin/AdminViewController.java`
 - `analytics/AnalyticsRepository.java`
@@ -50,10 +52,6 @@
 - `customer/CustomerService.java`
 - `customer/CustomerViewController.java`
 - `home/HomeController.java`
-- `infrastructure/storage/FileApiController.java`
-- `infrastructure/storage/FileService.java`
-- `infrastructure/storage/Image.java`
-- `infrastructure/storage/ImageRepository.java`
 - `loyalty/coupon/Coupon.java`
 - `loyalty/coupon/CouponForm.java`
 - `loyalty/coupon/CouponRepository.java`
