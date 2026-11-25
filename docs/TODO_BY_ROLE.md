@@ -24,9 +24,9 @@
 - [ ] 공개 ADMIN 가입 및 PENDING/SUSPENDED 접근 차단
 
 ## 이재준 — 방문·포인트·쿠폰
-- [ ] 목표 API 경로 합의 및 구현
-- [ ] 방문 적립 원자성, 포인트 잔액, 쿠폰 중복 사용, 매장 격리 테스트
-- [ ] 신규 Thymeleaf fragment를 실제 Controller/화면에 연결하고 테스트
+- [x] 목표 API 경로 합의 및 구현
+- [x] 방문 적립 원자성, 포인트 잔액, 쿠폰 중복 사용, 매장 격리 테스트
+- [x] 신규 Thymeleaf fragment를 실제 Controller/화면에 연결하고 테스트
 
 ## 한상희 — 분석·AI
 - [ ] 분석 대시보드 및 AI API 구현·검증
