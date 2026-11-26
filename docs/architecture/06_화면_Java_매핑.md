@@ -8,7 +8,7 @@
 - **Thymeleaf 경로**: `src/main/resources/templates/` 이하 상대 경로
 - **정적 HTML 경로**: `src/main/resources/static/pages/` 이하 상대 경로 (예외: 최상위 `static/index.html`)
 - 표의 `return`은 Controller의 뷰 이름이며, `templates/{return}.html`과 연결됩니다.
-- 연결된 Controller에는 `@Profile("dev")`가 있으므로 **dev 프로필에서만 등록**됩니다.
+- 위 표는 초기 Starter 기준의 이력입니다. 현재 주요 업무 화면 Controller는 `@Profile({"dev", "prod"})`로 두 프로필에서 등록되며, 실제 연결 상태는 현재 소스와 최신 검증 문서를 기준으로 확인합니다.
 
 | 화면 | Java Controller 파일 | 메서드 | 실제 GET URL | `return` | Thymeleaf HTML | 정적 HTML | 상태 |
 |---|---|---|---|---|---|---|---|
