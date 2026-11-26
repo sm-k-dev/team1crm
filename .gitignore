@@ -34,6 +34,9 @@ uploads/
 *.pem
 deploy-out/
 
+# Local document exports, inspection results, and temporary work files
+/outputs/
+
 # Local credentials and IDE-specific run configurations
 .env
 .env.*
