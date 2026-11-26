@@ -78,7 +78,9 @@
           method="post">
 
         <div class="col-md-3">
+            <label for="name" class="visually-hidden">고객 이름</label>
             <input class="form-control"
+                   id="name"
                    th:field="*{name}"
                    maxlength="30"
                    placeholder="이름 *"
@@ -90,7 +92,9 @@
         </div>
 
         <div class="col-md-3">
+            <label for="phone" class="visually-hidden">고객 전화번호</label>
             <input class="form-control"
+                   id="phone"
                    th:field="*{phone}"
                    placeholder="010-1234-5678 *"
                    required/>
@@ -101,7 +105,8 @@
         </div>
 
         <div class="col-md-2">
-            <select class="form-select" th:field="*{birthMonth}">
+            <label for="birthMonth" class="visually-hidden">생일 월</label>
+            <select id="birthMonth" class="form-select" th:field="*{birthMonth}">
                 <option value="">생일 월</option>
                 <option th:each="month : ${#numbers.sequence(1, 12)}"
                         th:value="${month}"
@@ -114,7 +119,9 @@
         </div>
 
         <div class="col-md-4">
+            <label for="memo" class="visually-hidden">고객 메모</label>
             <input class="form-control"
+                   id="memo"
                    th:field="*{memo}"
                    maxlength="300"
                    placeholder="메모"/>

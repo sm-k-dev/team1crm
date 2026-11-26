@@ -2,6 +2,6 @@ POST http://localhost:8082/api/members/login
 Content-Type: application/json
 
 {
-  "email": "sm2026@naver.com",
-  "password": "pw2026"
+  "email": "{{email}}",
+  "password": "{{password}}"
 }
