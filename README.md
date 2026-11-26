@@ -191,7 +191,7 @@ deploy/             배포 설정·스크립트
 
 ## 통합·검증이 남은 범위
 
-- 방문·포인트·쿠폰 서비스와 API는 담당 브랜치에서 통합했습니다. 실제 거래 호출·동시성·롤백과 고객 상세 화면 연동은 별도 검증 대상입니다.
+- 방문·포인트·쿠폰 서비스와 API, 고객 상세 fragment 연결 코드는 통합했습니다. 실제 거래 호출·동시성·롤백과 브라우저 화면 연동 검증은 별도 확인 대상입니다.
 - 공통 비밀번호 정책과 비밀번호 재설정·닉네임 중복 확인을 통합하고, ADMIN 생성 계정의 공통 정책·재설정 연동을 테스트했습니다. 실제 SMTP 수신·EC2 검증은 별도입니다. 아이디 찾기·가입 이메일 인증의 완료 여부는 추가 확인 대상입니다.
 - 승인·반려·정지·재활성화는 이번 최종 제출 범위에서 제외합니다(2026-11-26 팀장 확정). 매장 폐업과 소유권 기반 접근 제어는 구현 범위에 포함됩니다.
 - 운영 프로필, 실보안 필터·CSRF, 폐업과 신규 거래의 동시 처리, 배포 스모크 테스트를 별도로 확인합니다.
@@ -199,7 +199,8 @@ deploy/             배포 설정·스크립트
 
 ## 설계·검증 문서
 
-- [공식 설계](docs/architecture/00_SaaS_공식설계_v1.md) / [ERD](docs/architecture/04_SaaS_ERD.md) / [API 설계](docs/architecture/05_SaaS_API.md)
+- [현재 통합 요구사항](docs/architecture/14_요구사항_통합_수정_20261123.md) / [현재 ERD](docs/architecture/04_SaaS_ERD.md) / [현재 API](docs/architecture/05_SaaS_API.md)
+- [초기 설계 보존본](docs/architecture/00_SaaS_공식설계_v1.md): 현재 적용되지 않는 승인·정지 등 과거 구상 포함
 - [고객 삭제 정책·수동 검증](docs/architecture/07_고객_삭제_정책.md)
 - [ADMIN 관리 검증](docs/architecture/08_ADMIN_매장_관리_검증.md) / [홈 집계](docs/architecture/09_홈_요약_연동.md)
 - [폐업 정책·검증](docs/architecture/10_매장_폐업_정책.md) / [본인 정보·매장 수정](docs/architecture/11_본인_정보와_매장_수정.md)

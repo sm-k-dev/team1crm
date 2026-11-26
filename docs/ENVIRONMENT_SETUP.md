@@ -4,7 +4,9 @@
 - `application.properties`: 공통 설정. 프로필 미지정 시 `dev` 사용.
 - `application-dev.properties`: 로컬 MySQL 주소 기본값, 테이블 자동 변경(`update`), 화면 캐시 비활성화.
 - `application-prod.properties`: DB 주소 필수, 스키마 검증(`validate`), 화면 캐시 활성화, 오류 응답의 내부 정보 비공개.
-- Spring AI 모델은 두 프로필 모두 비활성화되어 있습니다. JWT/AI/S3 변수는 아직 기능에 연결되지 않았습니다.
+- Spring AI 자동 모델 구성은 두 프로필에서 비활성화되어 있습니다. 마케팅 AI는 `AiMarketingService`의 RestClient가 OpenRouter를 직접 호출하며 `OPENROUTER_API_KEY`·`OPENROUTER_MODEL`을 사용합니다.
+- JWT 인증은 `JWT_SECRET`을 사용합니다. Google OAuth2와 비밀번호 재설정 메일도 공통 설정에서 실행 환경 값을 참조합니다. 필수 변수 전체는 [README 환경변수](../README.md#2-환경변수)를 확인하세요.
+- S3 관련 배포 설정과 애플리케이션 파일 업로드 기능은 구분합니다. 미사용 이미지 관련 클래스는 제거된 상태이며 S3 변수가 있다는 이유로 업로드가 구현된 것은 아닙니다.
 
 DB/JPA 자동 구성은 활성화되어 있으므로 개발 환경에도 접속 가능한 MySQL이 필요합니다.
 
