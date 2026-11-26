@@ -10,7 +10,7 @@
 
 ## 배포 서비스
 
-- 서비스: [StoreCRM](https://www.crm.n-e.kr/)
+- 배포된 서비스 주소: [https://www.crm.n-e.kr/](https://www.crm.n-e.kr/)
 - 로그인: [로그인 화면](https://www.crm.n-e.kr/login)
 - 2026-11-25 main의 [CI](https://github.com/sm-k-dev/team1crm/actions/runs/45578300703)와 [CD](https://github.com/sm-k-dev/team1crm/actions/runs/45578300795)가 성공했습니다. CD의 서비스 실행 확인은 서버 내부 `/login` 응답을 검사하며, 공개 도메인과 주요 업무 흐름은 별도로 확인합니다.
 
