@@ -1,8 +1,20 @@
-# Starter 화면 ↔ Java Controller ↔ Thymeleaf ↔ 정적 HTML 매핑
+# 초기 Starter 화면 매핑 보존본과 현재 변경 사항
 
 > 기준: **첨부된 `CRM_Starter(2).zip`의 `src/main/` 실제 파일 및 Controller 소스**를 대조한 결과입니다. `build/`는 생성 결과물이므로 매핑 기준에서 제외했습니다. 이 문서는 파일/어노테이션 확인 결과이며, 서버를 실행한 통합 테스트 결과는 아닙니다.
 
-## 경로를 한눈에 보는 표
+## 현재 연결 상태 2026-11-26
+
+- 매장 설정: StoreSettingsViewController GET `/store-settings` → `auth/store-settings`.
+- 고객 상세: CustomerViewController GET `/customers/{customerId}` → `customer/detail`.
+- 고객 수정: GET/POST `/customers/{customerId}/edit`. 고객 등록·삭제도 Controller에 구현돼 있다.
+- 방문·포인트·쿠폰 fragment는 `templates/customer/detail.html`에서 실제 포함한다.
+- MemberApiController·StoreApiController·CustomerApiController·AiApiController에는 API 매핑과 업무 코드가 있다. 현재 경로는 [API 계약](05_SaaS_API.md)을 따른다.
+- 기본 프로필은 dev지만 서버 포트는 `${SERVER_PORT}` 환경변수이며 8082는 실행 예시다.
+- 기본 오류 처리는 Spring Boot 오류 경로와 `templates/error.html`을 사용한다. 별도 오류 Controller가 없다는 이유만으로 템플릿을 미연결로 판정하지 않는다.
+
+아래 나머지 표와 상태 설명은 초기 ZIP 당시 기록이다. 현재 미구현 목록이 아니며 실제 업무 흐름과 검증 범위는 README 및 최신 검증 문서로 확인한다.
+
+## 초기 ZIP 경로 표
 
 - **Java Controller 경로**: `src/main/java/com/team1/crm/` 이하 상대 경로
 - **Thymeleaf 경로**: `src/main/resources/templates/` 이하 상대 경로
@@ -39,9 +51,9 @@
 | `templates/loyalty/_point.html` | 없음 | 포인트 기능에서 포함할 조각 템플릿; 미연결 |
 | `templates/loyalty/_coupon.html` | 없음 | 쿠폰 기능에서 포함할 조각 템플릿; 미연결 |
 
-## 현재 Controller 중 화면 연결과 무관한 TODO 파일
+## 초기 ZIP 당시 TODO 파일
 
-다음 파일은 ZIP에 있지만 **Controller 어노테이션 및 GET 매핑이 없는 스켈레톤**입니다. 화면 URL로 오해하지 마세요.
+다음은 초기 ZIP을 검사했을 당시의 기록이다. 현재는 위 변경 사항 및 API 문서로 대체됐으며 아래 TODO 표를 현재 상태로 사용하지 않는다.
 
 | Java 파일 | 현재 상태 |
 |---|---|
@@ -51,12 +63,12 @@
 | `analytics/ai/AiApiController.java` | TODO, API 미구현 |
 | `auth/StoreSettingsViewController.java` | TODO, 화면 미연결 |
 
-## 상태 해석과 주의사항
+## 초기 기록의 상태 해석과 주의사항
 
 2026-11-24: 사용하지 않는 `infrastructure/storage`의 Image·ImageRepository·FileService·FileApiController는 제거했습니다. 기존 DB의 `image` 테이블 정리는 `docs/sql/remove_unused_image.sql`을 따릅니다.
 
 1. **연결됨**은 `@GetMapping`과 `return`으로 Thymeleaf 템플릿을 찾을 수 있도록 코드가 작성됐다는 뜻입니다. 로그인, DB 조회, CRUD, 권한 검증이 구현됐다는 뜻은 아닙니다.
 2. **미연결** 화면은 템플릿/정적 HTML 파일이 있어도 대응하는 MVC GET 매핑이 확인되지 않았다는 뜻입니다. 실제 로직이 필요한 상세/설정 화면은 임의로 연결하지 않았습니다.
 3. 정적 미리보기는 `/pages/...` URL로 접근하고, Thymeleaf 렌더링은 Controller URL(`/customers` 등)로 접근합니다. 둘은 다른 경로입니다.
-4. `application.properties`에서 기본 프로필은 `dev`, 포트는 `8082`입니다. `application-dev.properties`에서 Thymeleaf는 활성화되어 있습니다. 실제 실행은 다른 설정·의존성에 영향을 받을 수 있습니다.
-5. 기존 문서의 “서버 기능 미구현”은 **업무 기능 기준**으로는 여전히 맞지만, 현재 ZIP에는 위 9개 화면의 **MVC 라우팅 코드가 존재**하므로 둘을 구분해 표시했습니다.
+4. 당시 실행 예시는 dev·8082였다. 현재 `application.properties`의 기본 프로필은 `dev`, 포트는 필수 환경변수 `SERVER_PORT`이다. `application-dev.properties`에서 Thymeleaf는 활성화되어 있습니다. 실제 실행은 다른 설정·의존성에 영향을 받을 수 있습니다.
+5. 당시에는 업무 로직과 MVC 라우팅만 있는 상태를 구분했다. 현재는 업무 기능이 구현돼 있으므로 과거의 “미구현” 설명을 적용하지 않는다.
