@@ -10,6 +10,15 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.io.IOException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
+import javax.net.ssl.SSLException;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
+import java.util.stream.Stream;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -104,6 +113,50 @@ class AiMarketingServiceTest {
         var paidService = new AiMarketingService("test-key", "nvidia/nemotron-3.5-super-vl", client);
 
         assertThrows(AiUnavailableException.class, () -> paidService.generate(SEGMENT, "카페", 4));
+        server.verify();
+    }
+
+    /** 기록된 연결 장애를 모의 HTTP 전송 오류로 분리 재현한다. 김순민, 2026-11-27 */
+    @ParameterizedTest
+    @MethodSource("transportFailures")
+    void distinguishesTransportFailureWithoutRetry(IOException cause, String expected) {
+        server.expect(requestTo(COMPLETIONS_URL)).andRespond(withException(cause));
+        var error = assertThrows(AiUnavailableException.class, () -> service.generate(SEGMENT, "카페", 4));
+        assertEquals(expected, error.getMessage());
+        server.verify();
+    }
+
+    static Stream<Arguments> transportFailures() {
+        return Stream.of(
+                Arguments.of(new SocketTimeoutException("test"), "OpenRouter 요청 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요."),
+                Arguments.of(new UnknownHostException("test"), "서버에서 OpenRouter 주소를 찾을 수 없습니다. 네트워크 설정을 확인해 주세요."),
+                Arguments.of(new SSLException("test"), "OpenRouter 보안 연결에 실패했습니다. 서버 인증서 설정을 확인해 주세요."),
+                Arguments.of(new IOException("test"), "서버에서 OpenRouter에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요."));
+    }
+
+    /** 불완전·중복·잘린 응답은 두 번째 실패 후 문구로 노출하지 않는다. 김순민, 2026-11-27 */
+    @ParameterizedTest
+    @MethodSource("unusableResponses")
+    void rejectsUnusableResponseAfterOneRetry(String response) {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            server.expect(requestTo(COMPLETIONS_URL)).andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        }
+        var error = assertThrows(AiUnavailableException.class, () -> service.generate(SEGMENT, "카페", 4));
+        assertEquals("AI가 사용할 수 있는 문구 세 개를 반환하지 않았습니다. 다시 시도해 주세요.", error.getMessage());
+        server.verify();
+    }
+
+    static Stream<String> unusableResponses() {
+        return Stream.of("{\"choices\":[]}",
+                "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"하나\\n둘\\n셋\"}}]}",
+                "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"같은 문구\\n같은 문구\\n다른 문구\"}}]}");
+    }
+
+    @Test
+    void malformedJsonReturnsProcessingError() {
+        server.expect(requestTo(COMPLETIONS_URL)).andRespond(withSuccess("{broken", MediaType.APPLICATION_JSON));
+        var error = assertThrows(AiUnavailableException.class, () -> service.generate(SEGMENT, "카페", 4));
+        assertEquals("OpenRouter 응답을 읽을 수 없습니다. 잠시 후 다시 시도해 주세요.", error.getMessage());
         server.verify();
     }
 }

@@ -12,7 +12,7 @@
 
 - 배포된 서비스 주소: [https://www.crm.n-e.kr/](https://www.crm.n-e.kr/)
 - 로그인: [로그인 화면](https://www.crm.n-e.kr/login)
-- 2026-11-25 main의 [CI](https://github.com/sm-k-dev/team1crm/actions/runs/45578300703)와 [CD](https://github.com/sm-k-dev/team1crm/actions/runs/45578300795)가 성공했습니다. CD의 서비스 실행 확인은 서버 내부 `/login` 응답을 검사하며, 공개 도메인과 주요 업무 흐름은 별도로 확인합니다.
+- 2026-11-27 main(`67f778b`)의 [CI](https://github.com/sm-k-dev/team1crm/actions/runs/45904615721)와 [CD](https://github.com/sm-k-dev/team1crm/actions/runs/45904615776)가 성공했습니다. 공개 HTTPS `/login`의 HTTP 200도 확인했습니다. CD의 서비스 실행 확인은 서버 내부 `/login` 응답을 검사하며, 로그인 이후 주요 업무 흐름은 별도로 확인합니다.
 
 ## 주요 기능
 
