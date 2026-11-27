@@ -93,7 +93,7 @@ class LoyaltyViewControllerTest {
     }
 
     private MockHttpServletRequestBuilder visitRequest(String storeId) {
-        return post("/customers/100/visits").param("storeId", storeId);
+        return post("/customers/100/visits").param("storeId", storeId).param("requestKey", java.util.UUID.randomUUID().toString());
     }
 
     private MockHttpServletRequestBuilder couponRequest(String storeId) {
@@ -146,6 +146,7 @@ class LoyaltyViewControllerTest {
         ArgumentCaptor<VisitForm> form = ArgumentCaptor.forClass(VisitForm.class);
         verify(visits, times(2)).register(eq(900101L), eq(100L), form.capture());
         VisitForm first = form.getAllValues().get(0);
+        org.junit.jupiter.api.Assertions.assertNotNull(java.util.UUID.fromString(first.getRequestKey()));
         assertEquals(5000, first.getAmount());
         assertEquals(LocalDateTime.of(2026, 11, 17, 12, 30), first.getVisitedAt());
         assertEquals(55L, first.getCouponId());

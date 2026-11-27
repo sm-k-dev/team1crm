@@ -465,7 +465,7 @@ class LoyaltyServiceTest {
     }
 
     private VisitForm visitForm(int amount, String memo) {
-        VisitForm form = new VisitForm();
+        VisitForm form = new VisitForm();form.setRequestKey(java.util.UUID.randomUUID().toString());
         form.setAmount(amount);
         form.setMenuMemo(memo);
         return form;

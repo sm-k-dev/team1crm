@@ -13,13 +13,15 @@
 | GET | `/api/stores` | 인증 회원의 소유 매장 목록 |
 | POST | `/api/stores` | name,category,address,pointRate → 201 storeId |
 | GET | `/api/customers` | storeId,keyword,page(0부터) → 마스킹된 고객 페이지. 소유 매장만 |
-| POST | `/api/customers/{customerId}/visits` | storeId + JSON amount,visitedAt,menuMemo,couponId,usedPoints → 201 VisitResult |
+| POST | `/api/customers/{customerId}/visits` | storeId + JSON requestKey(UUID 필수),amount,visitedAt,menuMemo,couponId,usedPoints → 201 VisitResult |
 | POST | `/api/customers/{customerId}/coupons` | storeId + JSON title,discount,expiresAt → 201 couponId |
 | POST | `/api/ai/marketing-suggestions` | storeId,month(yyyy-MM),grade 요청 파라미터 → suggestions,remaining,example |
 
 고객 등록·수정·삭제와 분석 조회는 아래 MVC 화면 경로를 사용한다.
 독립적인 points/use, coupons/redeem API는 제공하지 않으며 방문 등록 안에서 함께 처리한다.
 AI의 등급별 인원은 클라이언트 값을 신뢰하지 않고 서버가 계산한다.
+
+방문 요청은 같은 고객·requestKey·내용 재전송 시 최초 결과를 반환한다(201). 같은 키로 내용을 바꾸면 409, 키 누락/형식 오류는 400이다. 새 방문은 새 키를 사용한다. MVC 방문 Form도 같은 계약을 사용한다. [재전송 정책과 배포 순서](15_방문_요청_재전송_정책.md)를 따른다.
 
 ## MVC 화면 및 Form
 

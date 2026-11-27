@@ -32,6 +32,7 @@ public class VisitService {
     private final CouponService couponService;
     private final PointService pointService;
     private final StoreService storeService;
+    private final VisitRequestRepository requestRepository;
 
     /**
      * 고객의 방문을 등록한다. 결제 금액 계산 순서는 다음과 같다.
@@ -40,12 +41,23 @@ public class VisitService {
      * @param storeId    로그인 회원이 소유를 확인한 매장 ID (컨트롤러에서 검증 후 전달)
      * @param customerId 방문한 고객 ID
      * @param form       검증을 마친 방문 입력값 (결제 금액은 할인 전 금액)
+     *                   requestKey는 새 방문마다 생성하며 같은 방문 재시도에 재사용한다.
      * @return 방문 ID, 적립 포인트, 쿠폰 할인액, 사용 포인트, 실제 결제 금액
      * @throws IllegalArgumentException 해당 매장의 고객이 아니거나, 쿠폰을 쓸 수 없거나, 포인트가 부족한 경우
      * @throws org.springframework.web.server.ResponseStatusException 폐업 매장이면 409
      */
     @Transactional
     public VisitResult register(Long storeId, Long customerId, VisitForm form) {
+        if (form.getRequestKey() == null || !form.getRequestKey().matches(
+                "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
+            throw new IllegalArgumentException("방문 요청 키가 올바르지 않습니다. 화면을 새로 열어 다시 시도해 주세요.");
+        }
+        if (form.getAmount() == null || form.getAmount() < 0 || form.getAmount() > 100_000_000
+                || (form.getMenuMemo() != null && form.getMenuMemo().length() > 200)) {
+            throw new IllegalArgumentException("방문 입력값을 확인해 주세요.");
+        }
+        String requestKey = form.getRequestKey().toLowerCase(java.util.Locale.ROOT);
+        String fingerprint = VisitRequestFingerprint.of(form);
         int usedPoints = form.getUsedPoints() != null ? form.getUsedPoints() : 0;
         if (usedPoints < 0) {
             // 폼 검증(@Min(0))이 먼저 막지만, 음수가 들어오면 결제 금액이 늘어나므로 서비스도 직접 막는다
@@ -56,13 +68,24 @@ public class VisitService {
         //      잠금 순서는 폐업 처리와 같은 "매장 → 고객"이어야 서로 기다리는 교착 상태가 생기지 않는다
         storeService.lockOpenStore(storeId);
 
+        // 잠금 뒤 현재 접근 가능한 고객인지 확인한다. 폐업·삭제 고객은 재시도라도 거절한다.
+        Customer customer = customerService.findCustomer(storeId, customerId);
+        var completed = requestRepository.findCompleted(customerId, requestKey);
+        if (completed.isPresent()) {
+            if (!completed.get().matches(fingerprint)) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT, "같은 요청 키로 방문 내용을 변경할 수 없습니다.");
+            }
+            return completed.get().result();
+        }
+
         // 0-2) 포인트를 쓰는 경우 고객 행을 먼저 잠근다. 잔액은 잠근 뒤에 읽어야 최신 값이 보인다 (PointService 참고)
         if (usedPoints > 0) {
             pointService.lockCustomer(customerId);
         }
 
         // 1) 고객이 이 매장 소속인지 확인 (다른 매장·삭제된 고객이면 여기서 예외)
-        Customer customer = customerService.findCustomer(storeId, customerId);
+        // 위에서 소속·삭제 여부를 확인한 고객을 사용한다.
 
         // 2) 방문 일시가 비어 있으면 서버 현재 시각 사용
         LocalDateTime visitedAt = form.getVisitedAt() != null ? form.getVisitedAt() : LocalDateTime.now();
@@ -105,7 +128,9 @@ public class VisitService {
                     new PointHistory(customer, visit, PointType.EARN, earned, visitedAt));
         }
 
-        return new VisitResult(visit.getId(), earned, appliedDiscount, usedPoints, paidAmount);
+        VisitResult result = new VisitResult(visit.getId(), earned, appliedDiscount, usedPoints, paidAmount);
+        requestRepository.save(new VisitRequest(customer, visit, requestKey, fingerprint, result));
+        return result;
     }
 
     /**
