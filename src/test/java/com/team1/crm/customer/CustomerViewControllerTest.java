@@ -301,7 +301,8 @@ class CustomerViewControllerTest {
     @DisplayName("상세 조회 성공 시 고객과 매장을 화면에 전달한다")
     void detailDisplaysCustomer() throws Exception {
         mvc.perform(request("detail")).andExpect(status().isOk()).andExpect(view().name("customer/detail"))
-                .andExpect(model().attribute("customer", customer)).andExpect(model().attribute("selectedStore", store));
+                .andExpect(model().attribute("customer", customer)).andExpect(model().attribute("selectedStore", store))
+                .andExpect(model().attributeExists("visitRequestKey"));
     }
 
     /** 수정 화면의 Form에 기존 고객 필드를 모두 채운다. 작성자: 김순민 / 작성일: 2026-11-11 */

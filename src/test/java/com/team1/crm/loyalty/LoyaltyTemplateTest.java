@@ -52,6 +52,7 @@ class LoyaltyTemplateTest {
 
         // 조각이 필요로 하는 공통 모델 값 (CustomerViewController.detail이 넣어 주는 값과 같은 이름)
         context.setVariable("customerId", 100L);
+        context.setVariable("visitRequestKey", "12345678-1234-1234-1234-123456789abc");
         context.setVariable("selectedStore", new StoreView(900101L));
         context.setVariable("pointBalance", 1305L);
     }
@@ -84,6 +85,8 @@ class LoyaltyTemplateTest {
         assertAll(
                 () -> assertTrue(html.contains("action=\"/customers/100/visits?storeId=900101\"")),
                 () -> assertTrue(html.contains("method=\"post\"")),
+                () -> assertTrue(html.contains("name=\"requestKey\"")),
+                () -> assertTrue(html.contains("value=\"12345678-1234-1234-1234-123456789abc\"")),
                 () -> assertTrue(html.contains("name=\"amount\"")),
                 () -> assertTrue(html.contains("name=\"visitedAt\"")),
                 () -> assertTrue(html.contains("name=\"couponId\"")),

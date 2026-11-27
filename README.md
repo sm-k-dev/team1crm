@@ -126,6 +126,7 @@ SQL 초기화는 자동 실행하지 않습니다. 시연 데이터는 dev에서
 | [고객 개인정보 처리](docs/sql/customer_privacy_migration.sql) | `deleted_at`, `anonymized_at`, `phone` NULL 허용 |
 | [다중 매장 소유](docs/sql/store_multi_owner_migration.sql) | `store.member_id` 단일 UNIQUE 제거, 일반 인덱스·외래키 유지 |
 | [매장 폐업](docs/sql/store_closure_migration.sql) | `store.closed_at` |
+| [방문 재전송 방지](docs/sql/visit_request_idempotency.sql) | 신규 `visit_request` 테이블·고객/키 UNIQUE·FK. 운영 코드 배포 전 적용 필요 |
 | [미사용 이미지 테이블 정리](docs/sql/remove_unused_image.sql) | 이미지 엔티티 제거 후, 선택 DB·행 수·외래키·트리거를 검사해 빈 테이블만 삭제 |
 
 비밀번호 재설정에는 `password_reset_tokens` 테이블도 필요합니다. 개발의 `update`와 운영의 사전 스키마 적용을 구분하고,
@@ -141,6 +142,8 @@ SQL 초기화는 자동 실행하지 않습니다. 시연 데이터는 dev에서
 상세 설정: [환경설정 안내](docs/ENVIRONMENT_SETUP.md), [개발·운영 환경](docs/개발_운영_환경.md), [서비스 실행 설정](deploy/crm.service).
 
 ## 테스트·빌드
+
+방문 등록에는 UUID `requestKey`가 필수입니다. 화면은 숨김 입력으로 전송하며, 외부 API는 새 방문에 새 키를 만들고 같은 방문 재시도에는 같은 키를 보냅니다. 같은 키·같은 내용은 최초 결과(201), 같은 키·다른 내용은 409입니다. 상세 계약은 [API 문서](docs/architecture/05_SaaS_API.md#방문-재전송-처리)를 확인하세요. 운영 반영 전에는 위 마이그레이션 표의 `visit_request` SQL을 적용하고 화면·서버·API 호출 측을 함께 갱신해야 합니다.
 
 Windows PowerShell:
 
@@ -191,7 +194,7 @@ deploy/             배포 설정·스크립트
 
 ## 통합·검증이 남은 범위
 
-- 방문·포인트·쿠폰 서비스와 API, 고객 상세 fragment 연결 코드는 통합했습니다. 실제 거래 호출·동시성·롤백과 브라우저 화면 연동 검증은 별도 확인 대상입니다.
+- 방문 재전송·동시 요청·쿠폰 및 포인트 롤백은 로컬 H2·MySQL에서 검증했습니다. 실제 운영 브라우저 화면 연동과 배포 후 검증은 남아 있습니다. [검증 기록](docs/verification/20261127_제출전_정리.md#계획-테스트-및-t29-후속-검증)을 참고하세요.
 - 공통 비밀번호 정책과 비밀번호 재설정·닉네임 중복 확인을 통합하고, ADMIN 생성 계정의 공통 정책·재설정 연동을 테스트했습니다. 실제 SMTP 수신·EC2 검증은 별도입니다. 아이디 찾기·가입 이메일 인증의 완료 여부는 추가 확인 대상입니다.
 - 승인·반려·정지·재활성화는 이번 최종 제출 범위에서 제외합니다(2026-11-26 팀장 확정). 매장 폐업과 소유권 기반 접근 제어는 구현 범위에 포함됩니다.
 - 운영 프로필, 실보안 필터·CSRF, 폐업과 신규 거래의 동시 처리, 배포 스모크 테스트를 별도로 확인합니다.

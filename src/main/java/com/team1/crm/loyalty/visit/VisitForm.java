@@ -13,6 +13,13 @@ import java.time.LocalDateTime;
 // 필드명은 templates/loyalty/_visit.html 의 input name 과 맞춘다.
 public class VisitForm {
 
+    @jakarta.validation.constraints.NotBlank
+    @jakarta.validation.constraints.Pattern(regexp="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+    private String requestKey; // 같은 방문의 네트워크 재시도에는 같은 UUID, 새 방문에는 새 UUID
+
+    public String getRequestKey() { return requestKey; }
+    public void setRequestKey(String requestKey) { this.requestKey = requestKey; }
+
     @NotNull
     @Min(0)
     @Max(100_000_000)

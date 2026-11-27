@@ -75,6 +75,39 @@ class ProdMysqlVerificationTest {
                 .andExpect(status().is3xxRedirection()).andReturn().getRequest().getSession(false);
     }
 
+    @Test @DisplayName("MySQL 실필터 방문 API 재전송은 같은 결과를 반환하고 내용 변경은 409")
+    void visitReplayWithRealSecurityAndMysql() throws Exception {
+        var owner=owner(Role.USER);var store=store(owner,"재전송HTTP");
+        long customerId=customers.registerCustomer(store,form("010-9898-0001"));var session=login(owner);
+        String key=UUID.randomUUID().toString();
+        String body="{\"requestKey\":\""+key+"\",\"amount\":10000,\"usedPoints\":0}";
+        String url="/api/customers/"+customerId+"/visits";
+        String first=mvc.perform(post(url).param("storeId",store.getId().toString()).session(session).with(csrf())
+                .contentType("application/json").content(body)).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        mvc.perform(post(url).param("storeId",store.getId().toString()).session(session).with(csrf())
+                .contentType("application/json").content(body)).andExpect(status().isCreated()).andExpect(content().string(first));
+        mvc.perform(post(url).param("storeId",store.getId().toString()).session(session).with(csrf())
+                .contentType("application/json").content(body.replace("10000","20000"))).andExpect(status().isConflict());
+        assertEquals(1,jdbc.queryForObject("select count(*) from visit where customer_id=?",Long.class,customerId));
+        assertEquals(1,jdbc.queryForObject("select count(*) from visit_request where customer_id=?",Long.class,customerId));
+        assertEquals(500,jdbc.queryForObject("select sum(point) from point_history where customer_id=?",Long.class,customerId));
+    }
+
+    @Test @DisplayName("MySQL 별도 트랜잭션의 동시 재전송도 방문·적립을 한 번만 저장한다")
+    void concurrentVisitReplayOnMysql() throws Exception {
+        var store=store(owner(Role.USER),"동시재전송");
+        long customerId=customers.registerCustomer(store,form("010-9898-0002"));
+        String key=UUID.randomUUID().toString();var start=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
+        try {
+            Callable<VisitResult> call=()->{assertTrue(start.await(10,TimeUnit.SECONDS));var f=new VisitForm();
+                f.setRequestKey(key);f.setAmount(10000);return visits.register(store.getId(),customerId,f);};
+            var first=pool.submit(call);var second=pool.submit(call);start.countDown();
+            assertEquals(first.get(15,TimeUnit.SECONDS),second.get(15,TimeUnit.SECONDS));
+            assertEquals(1,jdbc.queryForObject("select count(*) from visit where customer_id=?",Long.class,customerId));
+            assertEquals(1,jdbc.queryForObject("select count(*) from point_history where customer_id=?",Long.class,customerId));
+        } finally {start.countDown();pool.shutdownNow();}
+    }
+
     @Test @DisplayName("prod 실제 로그인·ADMIN 권한·CSRF를 검증한다")
     void productionRoutesUseRealSecurity() throws Exception {
         var owner=owner(Role.USER);var admin=owner(Role.ADMIN);var session=login(owner);
@@ -132,7 +165,7 @@ class ProdMysqlVerificationTest {
     @Test @DisplayName("MySQL 폐업 처리에서 거래·포인트·쿠폰을 보존하고 자유입력 제거 및 신규 거래 차단을 확인한다")
     void closurePreservesHistoryAndRejectsNewTransactions() {
         var owner=owner(Role.USER);var store=store(owner,"폐업 검증");var id=customers.registerCustomer(store,form("01022223333"));
-        var visit=new VisitForm();visit.setAmount(30000);visit.setMenuMemo("민감 방문 메모");
+        var visit=new VisitForm();visit.setRequestKey(java.util.UUID.randomUUID().toString());visit.setAmount(30000);visit.setMenuMemo("민감 방문 메모");
         visits.register(store.getId(),id,visit);
         var coupon=new CouponForm();coupon.setTitle("민감 쿠폰 제목");coupon.setDiscount(1000);coupon.setExpiresAt(LocalDate.now().plusDays(10));
         coupons.issue(store.getId(),id,coupon);
@@ -154,12 +187,12 @@ class ProdMysqlVerificationTest {
         var start=new CountDownLatch(1);var pool=Executors.newFixedThreadPool(2);
         try {
             var close=pool.submit(()->{start.await();closure.close(owner.getId(),store.getId());return true;});
-            var write=pool.submit(()->{start.await();var f=new VisitForm();f.setAmount(1000);f.setMenuMemo("동시 메모");
+            var write=pool.submit(()->{start.await();var f=new VisitForm();f.setRequestKey(java.util.UUID.randomUUID().toString());f.setAmount(1000);f.setMenuMemo("동시 메모");
                 try {visits.register(store.getId(),id,f);return true;}catch(ResponseStatusException e){assertEquals(409,e.getStatusCode().value());return false;}});
             start.countDown();assertTrue(close.get(20,TimeUnit.SECONDS));boolean registered=write.get(20,TimeUnit.SECONDS);
             assertEquals(registered?1:0,jdbc.queryForObject("select count(*) from visit where customer_id=?",Integer.class,id));
             assertEquals(0,jdbc.queryForObject("select count(*) from visit where customer_id=? and menu_memo is not null",Integer.class,id));
-            var f=new VisitForm();f.setAmount(1000);
+            var f=new VisitForm();f.setRequestKey(java.util.UUID.randomUUID().toString());f.setAmount(1000);
             assertEquals(409,assertThrows(ResponseStatusException.class,()->visits.register(store.getId(),id,f)).getStatusCode().value());
         } finally {pool.shutdownNow();}
     }
