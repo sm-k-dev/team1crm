@@ -57,7 +57,7 @@ public class LoyaltyViewController {
         Store store = findOwnedStoreOrForbidden(member, storeId);
 
         if (bindingResult.hasErrors()) {
-            redirectAttributes.addFlashAttribute("visitError", "입력값을 확인해 주세요. 결제 금액은 0원 이상 1억 원 이하, 사용 포인트는 0 이상, 메모는 200자 이하입니다.");
+            redirectAttributes.addFlashAttribute("visitError", "입력값을 확인해 주세요. 방문 요청 키도 필요합니다. 결제 금액은 0원 이상 1억 원 이하, 사용 포인트는 0 이상, 메모는 200자 이하입니다. 화면을 새로 연 뒤 다시 시도해 주세요.");
             return redirectToDetail(customerId, store.getId(), redirectAttributes);
         }
 

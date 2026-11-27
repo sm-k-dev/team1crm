@@ -315,6 +315,7 @@ public class CustomerViewController {
         // 방문·포인트·쿠폰 영역(loyalty 조각)에 필요한 값. 작성자: 이재준
         LoyaltyDetail loyalty = loyaltyDetailService.getDetail(selectedStore.getId(), customer.getId());
         model.addAttribute("customerId", customer.getId());
+        model.addAttribute("visitRequestKey", java.util.UUID.randomUUID().toString());
         model.addAttribute("visits", loyalty.visits());
         model.addAttribute("visitCount", loyalty.visitCount());
         model.addAttribute("coupons", loyalty.coupons());

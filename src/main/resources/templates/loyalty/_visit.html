@@ -12,6 +12,7 @@
     <div th:if="${visitError != null}" class="alert alert-danger py-2 small" th:text="${visitError}">오류 메시지</div>
     <!-- 매장 소유권은 서버가 storeId로 다시 확인한다 -->
     <form th:action="@{/customers/{id}/visits(id=${customerId},storeId=${selectedStore.id})}" method="post" class="row g-2">
+      <input type="hidden" name="requestKey" th:value="${visitRequestKey}" />
       <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
       <div class="col-6"><label class="form-label" for="visitAmount">결제 금액(원, 할인 전)</label><input id="visitAmount" name="amount" class="form-control" type="number" min="0" step="1" required /></div>
       <div class="col-6"><label class="form-label" for="visitedAt">방문 일시</label><input id="visitedAt" name="visitedAt" class="form-control" type="datetime-local" /></div>
